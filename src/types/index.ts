@@ -39,6 +39,25 @@ export interface Customer {
   created_at: string;
 }
 
+export type FieldType = 'text' | 'number' | 'select' | 'checkbox' | 'textarea';
+
+export interface CustomFieldDefinition {
+  id: string;
+  name: string; // Clave en JSONB (ej: "passcode", "km", "imei")
+  label: string; // Etiqueta visible
+  type: FieldType;
+  required: boolean;
+  options?: string[]; // Para tipo 'select'
+  placeholder?: string;
+}
+
+export interface DeviceCategoryTemplate {
+  id: string;
+  shop_id?: string;
+  category_name: string;
+  fields: CustomFieldDefinition[];
+}
+
 export interface Device {
   id: string;
   shop_id: string;
@@ -47,7 +66,7 @@ export interface Device {
   brand: string;
   model: string;
   serial_number?: string;
-  custom_attributes: Record<string, any>; // JSONB (IMEI, Kilometraje, etc.)
+  custom_attributes: Record<string, any>; // JSONB
   created_at: string;
 }
 
@@ -62,7 +81,7 @@ export type OrderStatus =
 export interface ServiceOrder {
   id: string;
   shop_id: string;
-  tracking_code: string; // Ej: #WO-8891
+  tracking_code: string;
   device_id: string;
   customer_id: string;
   technician_id?: string;
@@ -71,11 +90,10 @@ export interface ServiceOrder {
   technical_diagnosis?: string;
   internal_notes?: string;
   estimated_completion?: string;
-  estimated_cost?: number; // Oculto si can_view_financials es false
+  estimated_cost?: number;
   final_price?: number;
   created_at: string;
   
-  // Virtual joins for UI
   customer_name?: string;
   customer_phone?: string;
   device_info?: string;
@@ -89,7 +107,7 @@ export interface InventoryItem {
   category: string;
   stock: number;
   min_stock: number;
-  cost?: number; // Mascarado si can_view_financials es false
+  cost?: number;
   price: number;
   created_at: string;
 }
