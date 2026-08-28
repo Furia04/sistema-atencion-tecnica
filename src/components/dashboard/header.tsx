@@ -6,17 +6,23 @@ import { UserProfile } from '@/types';
 
 interface HeaderProps {
   user: UserProfile;
+  onToggleSidebar?: () => void;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, onToggleSidebar }: HeaderProps) {
   return (
     <header className="sticky top-0 bg-surface border-b border-outline-variant flex justify-between items-center w-full h-16 px-gutter z-30 shrink-0">
       <div className="flex items-center gap-4 flex-1">
-        <button className="md:hidden text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-surface-container-low transition-all">
-          <Menu className="w-5 h-5" />
+        {/* Botón de Menú Hamburguesa */}
+        <button
+          onClick={onToggleSidebar}
+          className="text-on-surface-variant hover:text-on-surface p-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center justify-center border border-outline-variant/50"
+          title="Abrir / Cerrar Menú"
+        >
+          <Menu className="w-5 h-5 text-primary" />
         </button>
 
-        {/* Global Search Bar */}
+        {/* Buscador Global */}
         <div className="relative max-w-md w-full hidden sm:block">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
           <input
@@ -27,7 +33,7 @@ export function Header({ user }: HeaderProps) {
         </div>
       </div>
 
-      {/* Trailing Actions & Notifications */}
+      {/* Acciones */}
       <div className="flex items-center gap-3">
         <button
           className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all p-2 rounded-full relative"

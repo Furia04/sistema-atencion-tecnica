@@ -1,35 +1,41 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { Header } from '@/components/dashboard/header';
 import { UserProfile } from '@/types';
 
-// Mock user loader - en producción se consulta desde Supabase Auth / Cookie Session
-async function getAuthenticatedUser(): Promise<UserProfile> {
-  return {
-    id: 'user-001',
-    email: 'admin@prorepair.com',
-    full_name: 'Tech J. Doe',
-    role: 'owner', // 'owner' o 'technician'
-    shop_id: 'shop-north-station',
-    can_view_financials: true,
-  };
-}
+const MOCK_USER: UserProfile = {
+  id: 'user-001',
+  email: 'admin@prorepair.com',
+  full_name: 'Carlos Dueño',
+  role: 'owner',
+  shop_id: 'shop-north-station',
+  can_view_financials: true,
+};
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAuthenticatedUser();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface">
-      {/* Sidebar fijo a la izquierda */}
-      <Sidebar user={user} />
+      {/* Sidebar Desplegable / Drawer */}
+      <Sidebar
+        user={MOCK_USER}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
-      {/* Contenedor principal con Header sticky y contenido scrolleable */}
-      <div className="flex-1 md:ml-sidebar-width flex flex-col min-w-0 h-full overflow-hidden">
-        <Header user={user} />
+      {/* Contenedor Principal a Ancho Completo */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        <Header
+          user={MOCK_USER}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+        />
         <main className="flex-1 overflow-y-auto p-container-margin bg-surface-container-lowest">
           {children}
         </main>
