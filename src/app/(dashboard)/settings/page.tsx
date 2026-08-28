@@ -18,6 +18,7 @@ import {
   AlignLeft,
   ChevronRight,
   Eye,
+  FolderMinus,
 } from 'lucide-react';
 import {
   CustomFieldDefinition,
@@ -153,6 +154,26 @@ export default function ErgonomicSettingsPage() {
     setSelectedTemplateId(newTmpl.id);
   };
 
+  const handleRemoveCategory = (tmplId: string, categoryName: string) => {
+    if (templates.length <= 1) {
+      alert('Debe existir al menos una categoría en el sistema.');
+      return;
+    }
+
+    const confirmed = confirm(
+      `¿Estás seguro de eliminar la categoría "${categoryName}" y todos sus campos asociados?`
+    );
+
+    if (!confirmed) return;
+
+    const updatedTemplates = templates.filter((t) => t.id !== tmplId);
+    setTemplates(updatedTemplates);
+
+    if (selectedTemplateId === tmplId) {
+      setSelectedTemplateId(updatedTemplates[0].id);
+    }
+  };
+
   const handleSaveSettings = () => {
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -227,7 +248,7 @@ export default function ErgonomicSettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1: PERFIL DEL TALLER (Espaciado y Limpio) */}
+      {/* TAB 1: PERFIL DEL TALLER */}
       {activeMainTab === 'general' && (
         <div className="space-y-6 max-w-3xl">
           <div className="bg-surface-container border border-outline-variant rounded-xl p-6 space-y-5">
@@ -290,7 +311,7 @@ export default function ErgonomicSettingsPage() {
       {/* TAB 2: PLANTILLAS Y CAMPOS EN LISTA ERGONOMICA */}
       {activeMainTab === 'fields' && (
         <div className="space-y-6">
-          {/* Selector de Categoría en Fila Limpia */}
+          {/* Selector de Categoría en Fila Limpia con Opción de Eliminar */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-outline-variant/40 pb-3">
               <div>
@@ -298,7 +319,7 @@ export default function ErgonomicSettingsPage() {
                   Categorías de Dispositivos
                 </h3>
                 <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">
-                  Selecciona una categoría para personalizar los datos dinámicos solicitados al cliente.
+                  Selecciona una categoría para editar sus campos o agrega/elimina categorías según las necesidades del taller.
                 </p>
               </div>
               <button
@@ -309,31 +330,47 @@ export default function ErgonomicSettingsPage() {
               </button>
             </div>
 
-            {/* List horizontal pills */}
+            {/* List horizontal pills with delete action */}
             <div className="flex flex-wrap gap-2">
               {templates.map((tmpl) => {
                 const isSelected = selectedTemplateId === tmpl.id;
                 return (
-                  <button
+                  <div
                     key={tmpl.id}
-                    onClick={() => setSelectedTemplateId(tmpl.id)}
-                    className={`px-4 py-2.5 rounded-lg font-title-sm text-sm transition-all flex items-center gap-2 border ${
+                    className={`flex items-center rounded-lg border transition-all ${
                       isSelected
                         ? 'bg-primary-container text-on-primary-container border-primary font-bold shadow-md'
                         : 'bg-surface-container-low text-on-surface-variant border-outline-variant hover:bg-surface-container-high hover:text-on-surface'
                     }`}
                   >
-                    <span>{tmpl.category_name}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-mono-data font-bold ${
-                        isSelected
-                          ? 'bg-primary/20 text-on-primary-container'
-                          : 'bg-surface-variant text-on-surface-variant'
-                      }`}
+                    <button
+                      onClick={() => setSelectedTemplateId(tmpl.id)}
+                      className="px-3.5 py-2.5 font-title-sm text-sm flex items-center gap-2"
                     >
-                      {tmpl.fields.length} campos
-                    </span>
-                  </button>
+                      <span>{tmpl.category_name}</span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono-data font-bold ${
+                          isSelected
+                            ? 'bg-primary/20 text-on-primary-container'
+                            : 'bg-surface-variant text-on-surface-variant'
+                        }`}
+                      >
+                        {tmpl.fields.length}
+                      </span>
+                    </button>
+
+                    {/* Delete Category Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveCategory(tmpl.id, tmpl.category_name);
+                      }}
+                      className={`p-2 mr-1 rounded hover:bg-error/20 transition-colors text-slate-400 hover:text-error`}
+                      title={`Eliminar categoría "${tmpl.category_name}"`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -351,14 +388,24 @@ export default function ErgonomicSettingsPage() {
                 </p>
               </div>
 
-              {!showAddFieldForm && (
+              <div className="flex items-center gap-2 self-start sm:self-auto">
                 <button
-                  onClick={() => setShowAddFieldForm(true)}
-                  className="bg-primary-container text-on-primary-container hover:bg-primary transition-colors px-4 py-2 rounded-lg font-title-sm text-xs flex items-center gap-1.5 font-semibold self-start sm:self-auto"
+                  onClick={() => handleRemoveCategory(currentTemplate.id, currentTemplate.category_name)}
+                  className="px-3 py-1.5 bg-error/10 text-error border border-error/30 hover:bg-error/20 rounded-lg text-xs font-label-caps font-bold transition-colors flex items-center gap-1.5"
+                  title="Eliminar esta categoría completa"
                 >
-                  <Plus className="w-4 h-4" /> Agregar Campo a esta Categoría
+                  <FolderMinus className="w-4 h-4" /> Eliminar Categoría
                 </button>
-              )}
+
+                {!showAddFieldForm && (
+                  <button
+                    onClick={() => setShowAddFieldForm(true)}
+                    className="bg-primary-container text-on-primary-container hover:bg-primary transition-colors px-4 py-2 rounded-lg font-title-sm text-xs flex items-center gap-1.5 font-semibold"
+                  >
+                    <Plus className="w-4 h-4" /> Agregar Campo
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Formulario Estructurado Desplegable para Agregar Campo */}
@@ -537,7 +584,7 @@ export default function ErgonomicSettingsPage() {
             )}
           </div>
 
-          {/* TARJETA SEPARADA DE PREVISUALIZACIÓN ERGONÓMICA */}
+          {/* TARJETA DE PREVISUALIZACIÓN */}
           <div className="bg-surface-container border border-outline-variant rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-2 text-primary font-title-sm font-bold border-b border-outline-variant/40 pb-3">
               <Eye className="w-5 h-5" />
