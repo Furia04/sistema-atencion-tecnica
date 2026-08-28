@@ -21,8 +21,59 @@ import {
   Copy,
   Check,
   Printer,
+  DollarSign,
+  Calculator,
 } from 'lucide-react';
-import { OrderStatus, ServiceOrder } from '@/types';
+import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
+import { BudgetCalculator, BudgetItem } from '@/components/orders/budget-calculator';
+
+const MOCK_USER: UserProfile = {
+  id: 'user-001',
+  email: 'admin@prorepair.com',
+  full_name: 'Carlos Dueño',
+  role: 'owner',
+  shop_id: 'shop-north-station',
+  can_view_financials: true,
+};
+
+const MOCK_INVENTORY: InventoryItem[] = [
+  {
+    id: 'inv-1',
+    shop_id: 'shop-north-station',
+    sku: 'SCR-IP13P-01',
+    name: 'Pantalla iPhone 13 Pro (OLED)',
+    category: 'Pantallas',
+    stock: 45,
+    min_stock: 10,
+    cost: 120.0,
+    price: 250.0,
+    created_at: '2026-10-01',
+  },
+  {
+    id: 'inv-2',
+    shop_id: 'shop-north-station',
+    sku: 'BAT-SS21-02',
+    name: 'Batería Samsung S21 (4000mAh)',
+    category: 'Baterías',
+    stock: 3,
+    min_stock: 8,
+    cost: 25.0,
+    price: 75.0,
+    created_at: '2026-10-05',
+  },
+  {
+    id: 'inv-3',
+    shop_id: 'shop-north-station',
+    sku: 'PRT-USBC-UN',
+    name: 'Puerto de Carga Universal Type-C',
+    category: 'Puertos',
+    stock: 18,
+    min_stock: 15,
+    cost: 4.5,
+    price: 35.0,
+    created_at: '2026-09-12',
+  },
+];
 
 const INITIAL_ORDERS: ServiceOrder[] = [
   {
@@ -118,13 +169,13 @@ export default function ServiceOrdersPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Estado para la Ventana Emergente (Modal de Edición y Comunicación)
+  // Estado para la Ventana Emergente
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
+  const [activeModalTab, setActiveModalTab] = useState<'details' | 'budget'>('details');
   const [copiedLink, setCopiedLink] = useState(false);
 
   const canSeeMoney = true;
 
-  // Filtrado y ordenamiento
   const filteredOrders = orders.filter((ord) => {
     const matchesFilter =
       activeFilter === 'all' || ord.status === activeFilter;
@@ -203,7 +254,7 @@ export default function ServiceOrdersPage() {
       case 'para_entregar':
         return `Hola ${name}, te avisamos desde ProRepair Ops que tu ${device} (Orden ${code}) está LISTO PARA RETIRAR en el taller. ¡Te esperamos!`;
       case 'esperando_cliente':
-        return `Hola ${name}, te escribimos de ProRepair Ops por tu ${device} (Orden ${code}). Tenemos listo el presupuesto de reparación. Por favor indícanos si apruebas el trabajo.`;
+        return `Hola ${name}, te escribimos de ProRepair Ops por tu ${device} (Orden ${code}). Tenemos listo el presupuesto de reparación ($${ord.final_price?.toFixed(2)}). Por favor indícanos si apruebas el trabajo.`;
       case 'en_revision':
         return `Hola ${name}, tu ${device} (Orden ${code}) ya ingresó a revisión en nuestro laboratorio. Te avisaremos apenas tengamos novedades.`;
       case 'esperando_repuesto':
@@ -222,7 +273,7 @@ export default function ServiceOrdersPage() {
             Órdenes de Servicio
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Usa las acciones de la tabla para editar, imprimir ticket térmico (80mm) o ir al portal público B2C del cliente.
+            Usa las acciones de la tabla para editar la orden, presupuestar repuestos, imprimir ticket o ir al portal B2C.
           </p>
         </div>
         <Link
@@ -233,7 +284,7 @@ export default function ServiceOrdersPage() {
         </Link>
       </div>
 
-      {/* Barra de Filtros por Estado */}
+      {/* Barra de Filtros */}
       <div className="bg-surface-container border border-outline-variant rounded-xl p-4 flex flex-col xl:flex-row gap-4 items-center justify-between">
         <div className="flex flex-wrap gap-2 w-full xl:w-auto">
           {[
@@ -259,7 +310,6 @@ export default function ServiceOrdersPage() {
           ))}
         </div>
 
-        {/* Buscador y Ordenamiento */}
         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
           <div className="relative flex-1 sm:w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -317,7 +367,10 @@ export default function ServiceOrdersPage() {
               {sortedOrders.map((ord) => (
                 <tr
                   key={ord.id}
-                  onClick={() => setEditingOrder(ord)}
+                  onClick={() => {
+                    setEditingOrder(ord);
+                    setActiveModalTab('details');
+                  }}
                   className="hover:bg-surface-container transition-colors group cursor-pointer"
                 >
                   <td className="px-table-cell-padding-h py-table-cell-padding-v text-primary font-bold">
@@ -351,11 +404,23 @@ export default function ServiceOrdersPage() {
                   </td>
                   <td className="px-table-cell-padding-h py-table-cell-padding-v text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* Acciones directas visibles */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingOrder(ord);
+                          setActiveModalTab('budget');
+                        }}
+                        className="p-1.5 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors"
+                        title="Presupuestar Repuestos y Mano de Obra"
+                      >
+                        <Calculator className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingOrder(ord);
+                          setActiveModalTab('details');
                         }}
                         className="p-1.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                         title="Editar Orden y Contactar Cliente"
@@ -392,11 +457,11 @@ export default function ServiceOrdersPage() {
         </div>
       </div>
 
-      {/* VENTANA EMERGENTE DE EDICIÓN Y COMUNICACIÓN (MODAL) */}
+      {/* VENTANA EMERGENTE DE EDICIÓN, COMUNICACIÓN Y PRESUPUESTADOR (MODAL) */}
       {editingOrder && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150"
+            className="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header del Modal */}
@@ -423,153 +488,187 @@ export default function ServiceOrdersPage() {
               </button>
             </div>
 
-            {/* Contenido del Modal */}
+            {/* Pestañas Internas del Modal (Detalles vs Presupuestador) */}
+            <div className="flex gap-2 px-6 border-b border-outline-variant/50 bg-surface-container-low pt-3">
+              <button
+                onClick={() => setActiveModalTab('details')}
+                className={`px-4 py-2 font-title-sm text-xs transition-colors flex items-center gap-2 border-b-2 font-bold ${
+                  activeModalTab === 'details'
+                    ? 'border-primary text-primary bg-surface-container font-bold'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <Edit className="w-4 h-4" /> Detalles y Comunicación WhatsApp
+              </button>
+              <button
+                onClick={() => setActiveModalTab('budget')}
+                className={`px-4 py-2 font-title-sm text-xs transition-colors flex items-center gap-2 border-b-2 font-bold ${
+                  activeModalTab === 'budget'
+                    ? 'border-emerald-400 text-emerald-400 bg-surface-container font-bold'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <Calculator className="w-4 h-4" /> Presupuestador & Repuestos de Stock
+              </button>
+            </div>
+
+            {/* Contenido del Modal (Scrollable) */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              {/* SECCIÓN 1: CAMBIO DE ESTADO DE LA ORDEN */}
-              <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
-                <label className="block font-label-caps text-xs text-primary uppercase font-bold">
-                  1. Cambiar Estado de la Orden
-                </label>
-                <select
-                  value={editingOrder.status}
-                  onChange={(e) =>
+              {activeModalTab === 'details' && (
+                <>
+                  {/* SECCIÓN 1: CAMBIO DE ESTADO DE LA ORDEN */}
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
+                    <label className="block font-label-caps text-xs text-primary uppercase font-bold">
+                      1. Cambiar Estado de la Orden
+                    </label>
+                    <select
+                      value={editingOrder.status}
+                      onChange={(e) =>
+                        setEditingOrder({
+                          ...editingOrder,
+                          status: e.target.value as OrderStatus,
+                        })
+                      }
+                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-md text-on-surface font-semibold focus:border-primary focus:ring-1 focus:ring-primary/50"
+                    >
+                      <option value="recibido">Recibido (Ingreso)</option>
+                      <option value="en_revision">En Revisión (Diagnóstico)</option>
+                      <option value="esperando_repuesto">Esperando Repuesto</option>
+                      <option value="esperando_cliente">Esperando Respuesta del Cliente</option>
+                      <option value="para_entregar">Para Entregar (Listo)</option>
+                      <option value="abandonado">Abandonado</option>
+                    </select>
+                  </div>
+
+                  {/* SECCIÓN 2: COMUNICACIÓN DIRECTA CON EL CLIENTE */}
+                  <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
+                    <label className="block font-label-caps text-xs text-emerald-400 uppercase font-bold flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4" /> 2. Comunicarse con el Cliente
+                    </label>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <a
+                        href={`https://wa.me/${(editingOrder.customer_phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(getWhatsAppMessage(editingOrder))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-title-sm text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                      >
+                        <MessageSquare className="w-4 h-4" /> Enviar WhatsApp con Plantilla
+                      </a>
+
+                      <button
+                        onClick={() => {
+                          const link = `${window.location.origin}/track/${editingOrder.tracking_code.replace('#', '')}`;
+                          navigator.clipboard.writeText(link);
+                          setCopiedLink(true);
+                          setTimeout(() => setCopiedLink(false), 2000);
+                        }}
+                        className="bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface px-4 py-2.5 rounded-lg font-title-sm text-xs flex items-center justify-center gap-2 transition-colors"
+                      >
+                        {copiedLink ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-400" /> ¡Enlace Copiado!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4 text-primary" /> Copiar Enlace B2C
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SECCIÓN 3: EDICIÓN DE DATOS TÉCNICOS Y PRESUPUESTO */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
+                        Falla Reportada por el Cliente
+                      </label>
+                      <textarea
+                        value={editingOrder.reported_fault}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            reported_fault: e.target.value,
+                          })
+                        }
+                        rows={2}
+                        className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
+                        Diagnóstico Técnico / Trabajo Realizado
+                      </label>
+                      <textarea
+                        value={editingOrder.technical_diagnosis || ''}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            technical_diagnosis: e.target.value,
+                          })
+                        }
+                        rows={3}
+                        placeholder="Escriba aquí los detalles técnicos de la revisión o reparación..."
+                        className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
+                          Fecha Estimada de Entrega
+                        </label>
+                        <input
+                          type="text"
+                          value={editingOrder.estimated_completion || ''}
+                          onChange={(e) =>
+                            setEditingOrder({
+                              ...editingOrder,
+                              estimated_completion: e.target.value,
+                            })
+                          }
+                          placeholder="Ej: 25 Oct 2026, 17:00 hs"
+                          className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
+                          Monto Total Presupuestado ($)
+                        </label>
+                        <input
+                          type="number"
+                          value={editingOrder.final_price ?? 0}
+                          onChange={(e) =>
+                            setEditingOrder({
+                              ...editingOrder,
+                              final_price: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-mono-data font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-right"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeModalTab === 'budget' && (
+                <BudgetCalculator
+                  order={editingOrder}
+                  user={MOCK_USER}
+                  availableInventory={MOCK_INVENTORY}
+                  onSaveBudget={(labor, parts, finalPrice, items) => {
                     setEditingOrder({
                       ...editingOrder,
-                      status: e.target.value as OrderStatus,
-                    })
-                  }
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-md text-on-surface font-semibold focus:border-primary focus:ring-1 focus:ring-primary/50"
-                >
-                  <option value="recibido">Recibido (Ingreso)</option>
-                  <option value="en_revision">En Revisión (Diagnóstico)</option>
-                  <option value="esperando_repuesto">Esperando Repuesto</option>
-                  <option value="esperando_cliente">Esperando Respuesta del Cliente</option>
-                  <option value="para_entregar">Para Entregar (Listo)</option>
-                  <option value="abandonado">Abandonado</option>
-                </select>
-              </div>
-
-              {/* SECCIÓN 2: COMUNICACIÓN DIRECTA CON EL CLIENTE */}
-              <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
-                <label className="block font-label-caps text-xs text-emerald-400 uppercase font-bold flex items-center gap-1.5">
-                  <MessageSquare className="w-4 h-4" /> 2. Comunicarse con el Cliente
-                </label>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <a
-                    href={`https://wa.me/${(editingOrder.customer_phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(getWhatsAppMessage(editingOrder))}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-title-sm text-xs font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
-                  >
-                    <MessageSquare className="w-4 h-4" /> Enviar WhatsApp con Plantilla
-                  </a>
-
-                  <button
-                    onClick={() => {
-                      const link = `${window.location.origin}/track/${editingOrder.tracking_code.replace('#', '')}`;
-                      navigator.clipboard.writeText(link);
-                      setCopiedLink(true);
-                      setTimeout(() => setCopiedLink(false), 2000);
-                    }}
-                    className="bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface px-4 py-2.5 rounded-lg font-title-sm text-xs flex items-center justify-center gap-2 transition-colors"
-                  >
-                    {copiedLink ? (
-                      <>
-                        <Check className="w-4 h-4 text-emerald-400" /> ¡Enlace Copiado!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4 text-primary" /> Copiar Enlace B2C
-                      </>
-                    )}
-                  </button>
-
-                  <Link
-                    href={`/track/${editingOrder.tracking_code.replace('#', '')}`}
-                    target="_blank"
-                    className="bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface px-3 py-2.5 rounded-lg font-title-sm text-xs flex items-center justify-center gap-1.5 transition-colors"
-                    title="Ver Portal B2C"
-                  >
-                    <ExternalLink className="w-4 h-4 text-primary" /> Portal B2C
-                  </Link>
-                </div>
-              </div>
-
-              {/* SECCIÓN 3: EDICIÓN DE DATOS TÉCNICOS Y PRESUPUESTO */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                    Falla Reportada por el Cliente
-                  </label>
-                  <textarea
-                    value={editingOrder.reported_fault}
-                    onChange={(e) =>
-                      setEditingOrder({
-                        ...editingOrder,
-                        reported_fault: e.target.value,
-                      })
-                    }
-                    rows={2}
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                    Diagnóstico Técnico / Trabajo Realizado
-                  </label>
-                  <textarea
-                    value={editingOrder.technical_diagnosis || ''}
-                    onChange={(e) =>
-                      setEditingOrder({
-                        ...editingOrder,
-                        technical_diagnosis: e.target.value,
-                      })
-                    }
-                    rows={3}
-                    placeholder="Escriba aquí los detalles técnicos de la revisión o reparación..."
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                      Fecha Estimada de Entrega
-                    </label>
-                    <input
-                      type="text"
-                      value={editingOrder.estimated_completion || ''}
-                      onChange={(e) =>
-                        setEditingOrder({
-                          ...editingOrder,
-                          estimated_completion: e.target.value,
-                        })
-                      }
-                      placeholder="Ej: 25 Oct 2026, 17:00 hs"
-                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                      Monto Total Presupuestado ($)
-                    </label>
-                    <input
-                      type="number"
-                      value={editingOrder.final_price ?? 0}
-                      onChange={(e) =>
-                        setEditingOrder({
-                          ...editingOrder,
-                          final_price: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-mono-data font-bold text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-right"
-                    />
-                  </div>
-                </div>
-              </div>
+                      final_price: finalPrice,
+                    });
+                    setActiveModalTab('details');
+                  }}
+                />
+              )}
             </div>
 
             {/* Footer del Modal */}
@@ -578,7 +677,7 @@ export default function ServiceOrdersPage() {
                 onClick={() => window.print()}
                 className="px-4 py-2 bg-surface-bright border border-outline-variant rounded-lg text-xs font-title-sm text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1.5 font-bold"
               >
-                <Printer className="w-4 h-4 text-primary" /> Imprimir Ticket (80mm)
+                <Printer className="w-4 h-4 text-primary" /> Imprimir Ticket Térmico (80mm)
               </button>
 
               <div className="flex gap-3">
