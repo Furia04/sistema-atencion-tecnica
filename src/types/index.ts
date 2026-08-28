@@ -35,6 +35,7 @@ export interface Customer {
   shop_id: string;
   full_name: string;
   phone: string;
+  document_id?: string; // DNI / CUIT / Identificación
   email?: string;
   created_at: string;
 }
@@ -43,11 +44,11 @@ export type FieldType = 'text' | 'number' | 'select' | 'checkbox' | 'textarea';
 
 export interface CustomFieldDefinition {
   id: string;
-  name: string; // Clave en JSONB (ej: "passcode", "km", "imei")
-  label: string; // Etiqueta visible
+  name: string;
+  label: string;
   type: FieldType;
   required: boolean;
-  options?: string[]; // Para tipo 'select'
+  options?: string[];
   placeholder?: string;
 }
 
@@ -62,11 +63,11 @@ export interface Device {
   id: string;
   shop_id: string;
   customer_id: string;
-  type: string; // PC, Celular, Auto, Consola, Drone, etc.
+  type: string;
   brand: string;
   model: string;
   serial_number?: string;
-  custom_attributes: Record<string, any>; // JSONB
+  custom_attributes: Record<string, any>;
   created_at: string;
 }
 
@@ -96,6 +97,7 @@ export interface ServiceOrder {
   
   customer_name?: string;
   customer_phone?: string;
+  customer_document_id?: string;
   device_info?: string;
 }
 

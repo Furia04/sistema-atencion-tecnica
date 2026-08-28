@@ -4,9 +4,12 @@ import React, { useState } from 'react';
 import { Printer, QrCode, Search, User, Smartphone, AlertCircle } from 'lucide-react';
 
 export default function NewOrderIntakePage() {
-  // Form State
+  // Datos del Cliente con DNI / Documento
   const [customerName, setCustomerName] = useState('John Doe');
+  const [customerDocumentId, setCustomerDocumentId] = useState('38912402');
   const [customerPhone, setCustomerPhone] = useState('+1 (555) 019-2839');
+
+  // Datos del Dispositivo
   const [deviceType, setDeviceType] = useState('Smartphone');
   const [deviceBrand, setDeviceBrand] = useState('Apple');
   const [deviceModel, setDeviceModel] = useState('iPhone 13 Pro');
@@ -25,11 +28,11 @@ export default function NewOrderIntakePage() {
 
   return (
     <div className="flex flex-col h-full gap-6">
-      {/* Title & Action Header */}
+      {/* Título y Acción Header */}
       <div className="flex justify-between items-end">
         <div>
           <h2 className="font-display-lg text-display-lg text-on-surface">
-            Point of Intake
+            Punto de Recepción
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
             Recepción de equipo, alta de OT y emisión de ticket térmico.
@@ -37,38 +40,38 @@ export default function NewOrderIntakePage() {
         </div>
         <button
           onClick={handlePrint}
-          className="bg-primary-container text-on-primary-container font-title-sm text-title-sm px-6 py-2.5 rounded hover:bg-primary transition-colors flex items-center gap-2 shadow-[0_0_8px_rgba(124,58,237,0.3)]"
+          className="bg-primary-container text-on-primary-container font-title-sm text-title-sm px-6 py-2.5 rounded-lg hover:bg-primary transition-colors flex items-center gap-2 shadow-[0_0_8px_rgba(124,58,237,0.3)] font-semibold"
         >
           <Printer className="w-5 h-5" /> Imprimir Ticket & Guardar
         </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1">
-        {/* Left Column: Intake Steps Form */}
+        {/* Columna Izquierda: Formulario de Recepción */}
         <div className="xl:col-span-8 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Step 1: Customer */}
-            <div className="bg-surface-container rounded-lg border border-outline-variant p-6 flex flex-col relative group">
+            {/* Paso 1: Datos del Cliente (con DNI) */}
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-6 flex flex-col relative group">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-caps text-label-caps font-bold">
                   1
                 </div>
-                <h3 className="font-title-sm text-title-sm text-on-surface">
+                <h3 className="font-title-sm text-title-sm text-on-surface font-bold">
                   Datos del Cliente
                 </h3>
               </div>
 
               <div className="space-y-4 flex-1">
                 <div>
-                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
-                    Buscar Cliente Existente
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
+                    Buscar Cliente Existente (Por DNI, Teléfono o Nombre)
                   </label>
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                     <input
                       type="text"
-                      placeholder="Teléfono o Nombre..."
-                      className="w-full bg-surface-container-lowest border border-outline-variant rounded pl-9 pr-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                      placeholder="DNI, Teléfono o Nombre..."
+                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-9 pr-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
                     />
                   </div>
                 </div>
@@ -76,57 +79,70 @@ export default function NewOrderIntakePage() {
                 <div className="flex items-center gap-4 my-2">
                   <div className="h-px bg-outline-variant flex-1" />
                   <span className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">
-                    O ALTA RÁPIDA
+                    O ALTA RÁPIDA DE CLIENTE
                   </span>
                   <div className="h-px bg-outline-variant flex-1" />
                 </div>
 
                 <div>
-                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                     Nombre Completo
                   </label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
+                    DNI / CUIT / Identificación
+                  </label>
+                  <input
+                    type="text"
+                    value={customerDocumentId}
+                    onChange={(e) => setCustomerDocumentId(e.target.value)}
+                    placeholder="Ej: 38912402"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-mono-data text-mono-data text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                     Teléfono (WhatsApp)
                   </label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-mono-data text-mono-data text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-mono-data text-mono-data text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Step 2: Device & JSONB Custom Attributes */}
-            <div className="bg-surface-container rounded-lg border border-outline-variant p-6 flex flex-col relative group">
+            {/* Paso 2: Perfil del Dispositivo */}
+            <div className="bg-surface-container rounded-xl border border-outline-variant p-6 flex flex-col relative group">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-caps text-label-caps font-bold">
                   2
                 </div>
-                <h3 className="font-title-sm text-title-sm text-on-surface">
+                <h3 className="font-title-sm text-title-sm text-on-surface font-bold">
                   Perfil del Dispositivo
                 </h3>
               </div>
 
               <div className="space-y-4 flex-1">
                 <div>
-                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                     Categoría / Tipo
                   </label>
                   <select
                     value={deviceType}
                     onChange={(e) => setDeviceType(e.target.value)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded px-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
                   >
                     <option>Smartphone</option>
                     <option>Computadora / Laptop</option>
@@ -136,9 +152,9 @@ export default function NewOrderIntakePage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 bg-surface-container-lowest p-3 rounded border border-outline-variant/50">
+                <div className="grid grid-cols-2 gap-4 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/50">
                   <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                       Marca
                     </label>
                     <input
@@ -149,7 +165,7 @@ export default function NewOrderIntakePage() {
                     />
                   </div>
                   <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                       Modelo
                     </label>
                     <input
@@ -160,7 +176,7 @@ export default function NewOrderIntakePage() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase">
+                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-1 uppercase font-semibold">
                       IMEI / Nº Serie
                     </label>
                     <input
@@ -178,9 +194,9 @@ export default function NewOrderIntakePage() {
                     id="powersOnCheck"
                     checked={powersOn}
                     onChange={(e) => setPowersOn(e.target.checked)}
-                    className="rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary"
+                    className="w-4 h-4 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary"
                   />
-                  <label htmlFor="powersOnCheck" className="font-body-sm text-body-sm text-on-surface-variant cursor-pointer">
+                  <label htmlFor="powersOnCheck" className="font-body-sm text-body-sm text-on-surface-variant cursor-pointer select-none">
                     El equipo enciende al ingresar
                   </label>
                 </div>
@@ -188,13 +204,13 @@ export default function NewOrderIntakePage() {
             </div>
           </div>
 
-          {/* Step 3: Diagnosis / Fault */}
-          <div className="bg-surface-container rounded-lg border border-outline-variant p-6 flex flex-col flex-1">
+          {/* Paso 3: Falla Reportada */}
+          <div className="bg-surface-container rounded-xl border border-outline-variant p-6 flex flex-col flex-1">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-caps text-label-caps font-bold">
                 3
               </div>
-              <h3 className="font-title-sm text-title-sm text-on-surface">
+              <h3 className="font-title-sm text-title-sm text-on-surface font-bold">
                 Descripción de la Falla
               </h3>
             </div>
@@ -202,26 +218,26 @@ export default function NewOrderIntakePage() {
               value={faultDescription}
               onChange={(e) => setFaultDescription(e.target.value)}
               rows={4}
-              className="w-full flex-1 bg-surface-container-lowest border border-outline-variant rounded p-3 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
+              className="w-full flex-1 bg-surface-container-lowest border border-outline-variant rounded-lg p-3 font-body-sm text-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
               placeholder="Describa la falla reportada en detalle..."
             />
           </div>
         </div>
 
-        {/* Right Column: Live Thermal Ticket Preview (80mm Format) */}
+        {/* Columna Derecha: Ticket Térmico Imprimible 80mm */}
         <div className="xl:col-span-4 h-full">
-          <div className="bg-surface-container rounded-lg border border-outline-variant h-full flex flex-col overflow-hidden">
+          <div className="bg-surface-container rounded-xl border border-outline-variant h-full flex flex-col overflow-hidden">
             <div className="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-              <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-2">
+              <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase flex items-center gap-2 font-bold">
                 <Printer className="w-4 h-4 text-primary" /> Ticket Térmico (80mm)
               </h3>
-              <span className="px-2 py-0.5 bg-primary/10 text-primary font-label-caps text-xs rounded">
+              <span className="px-2 py-0.5 bg-primary/10 text-primary font-label-caps text-xs rounded font-bold">
                 Previsualización
               </span>
             </div>
 
             <div className="flex-1 bg-surface-container-highest p-6 flex items-start justify-center overflow-y-auto">
-              {/* Simulated Printable Ticket Element */}
+              {/* Elemento Ticket Térmico Simulado */}
               <div
                 id="printable-thermal-ticket"
                 className="bg-white text-black w-[300px] p-6 shadow-lg font-mono-data text-xs leading-tight"
@@ -230,7 +246,7 @@ export default function NewOrderIntakePage() {
                   <div className="font-bold text-base uppercase tracking-wider">
                     PRO REPAIR OPS
                   </div>
-                  <div>North Station Workshop</div>
+                  <div>Sucursal Norte Taller</div>
                   <div className="mt-2 font-bold text-sm">#{ticketCode}</div>
                   <div className="text-[10px]">{todayDate}</div>
                 </div>
@@ -238,6 +254,7 @@ export default function NewOrderIntakePage() {
                 <div className="mb-4">
                   <div className="font-bold uppercase mb-1">CLIENTE</div>
                   <div>Nombre: {customerName}</div>
+                  <div>DNI: {customerDocumentId || 'N/A'}</div>
                   <div>Tel: {customerPhone}</div>
                 </div>
 
