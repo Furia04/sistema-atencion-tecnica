@@ -71,13 +71,14 @@ export interface Device {
   created_at: string;
 }
 
+// Estados personalizados solicitados por el usuario
 export type OrderStatus =
-  | 'received'
-  | 'in_progress'
-  | 'waiting_parts'
-  | 'ready'
-  | 'delivered'
-  | 'cancelled';
+  | 'recibido'
+  | 'en_revision'
+  | 'esperando_repuesto'
+  | 'esperando_cliente'
+  | 'para_entregar'
+  | 'abandonado';
 
 export interface ServiceOrder {
   id: string;

@@ -5,7 +5,7 @@
 -- 1. Habilitar extensión UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Definición de ENUMs
+-- 2. Definición de ENUMs (con estados en español latino solicitados)
 DO $$ BEGIN
     CREATE TYPE user_role AS ENUM ('owner', 'technician');
 EXCEPTION
@@ -13,12 +13,19 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE order_status AS ENUM ('received', 'in_progress', 'waiting_parts', 'ready', 'delivered', 'cancelled');
+    CREATE TYPE order_status AS ENUM (
+        'recibido',
+        'en_revision',
+        'esperando_repuesto',
+        'esperando_cliente',
+        'para_entregar',
+        'abandonado'
+    );
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 3. Tabla de Talleres (Tenants / Inquilinos)
+-- 3. Tabla de Talleres (Tenants)
 CREATE TABLE IF NOT EXISTS shops (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
@@ -48,12 +55,13 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE shops DROP CONSTRAINT IF EXISTS fk_shops_owner;
 ALTER TABLE shops ADD CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
 
--- 5. Tabla de Clientes
+-- 5. Tabla de Clientes (con document_id DNI / CUIT)
 CREATE TABLE IF NOT EXISTS customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(50) NOT NULL,
+    document_id VARCHAR(50),
     email VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -79,7 +87,7 @@ CREATE TABLE IF NOT EXISTS service_orders (
     device_id UUID NOT NULL REFERENCES devices(id),
     customer_id UUID NOT NULL REFERENCES customers(id),
     technician_id UUID REFERENCES users(id),
-    status order_status NOT NULL DEFAULT 'received',
+    status order_status NOT NULL DEFAULT 'recibido',
     reported_fault TEXT NOT NULL,
     technical_diagnosis TEXT,
     internal_notes TEXT,
@@ -114,7 +122,6 @@ ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 
--- Helper para obtener el shop_id del usuario autenticado
 CREATE OR REPLACE FUNCTION get_current_shop_id()
 RETURNS UUID AS $$
 BEGIN
@@ -122,7 +129,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- Políticas de aislamiento por taller
 DROP POLICY IF EXISTS "Shop Isolation Shops" ON shops;
 CREATE POLICY "Shop Isolation Shops" ON shops FOR ALL USING (id = get_current_shop_id());
 
@@ -141,7 +147,7 @@ CREATE POLICY "Shop Isolation Orders" ON service_orders FOR ALL USING (shop_id =
 DROP POLICY IF EXISTS "Shop Isolation Inventory" ON inventory;
 CREATE POLICY "Shop Isolation Inventory" ON inventory FOR ALL USING (shop_id = get_current_shop_id());
 
--- Políticas Públicas para el Portal de Seguimiento B2C (/track/[tracking_code])
+-- Políticas Públicas para el Portal B2C (/track/[tracking_code])
 DROP POLICY IF EXISTS "Public B2C Order Tracking" ON service_orders;
 CREATE POLICY "Public B2C Order Tracking" ON service_orders FOR SELECT USING (true);
 

@@ -32,7 +32,7 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     customer_id: 'cust-1',
     customer_name: 'Sarah Connor',
     device_info: 'Computadora · ThinkPad T14',
-    status: 'in_progress',
+    status: 'en_revision',
     reported_fault: 'Perdió calibración de motor en bisagra',
     final_price: 450.0,
     created_at: '2026-08-27T10:45:00Z',
@@ -45,7 +45,7 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     customer_id: 'cust-2',
     customer_name: 'Kyle Reese',
     device_info: 'Smartphone · iPhone 13 Pro',
-    status: 'ready',
+    status: 'para_entregar',
     reported_fault: 'Pantalla rota y módulo de carga dañado',
     final_price: 185.5,
     created_at: '2026-08-27T09:15:00Z',
@@ -58,7 +58,7 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     customer_id: 'cust-3',
     customer_name: 'T-800 Unit',
     device_info: 'Scanner Industrial · Zebra TC52',
-    status: 'waiting_parts',
+    status: 'esperando_repuesto',
     reported_fault: 'Reemplazo de cristal de lente óptico',
     final_price: 320.0,
     created_at: '2026-08-26T16:20:00Z',
@@ -71,7 +71,7 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     customer_id: 'cust-4',
     customer_name: 'Miles Dyson',
     device_info: 'Placa Base · Servidor Procesador',
-    status: 'received',
+    status: 'recibido',
     reported_fault: 'Sobrecalentamiento bajo carga de procesamiento',
     final_price: 95.0,
     created_at: '2026-08-26T14:10:00Z',
@@ -96,7 +96,6 @@ export default async function DashboardPage() {
 
       {/* Tarjetas Bento de Resumen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
-        {/* Tarjeta 1: Total de Órdenes */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
@@ -114,7 +113,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Tarjeta 2: Pendientes */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
@@ -132,11 +130,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Tarjeta 3: Listas para Retiro */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
-              LISTAS PARA RETIRO
+              PARA ENTREGAR
             </span>
             <span className="bg-emerald-500/20 text-emerald-400 p-1.5 rounded-md">
               <CheckCircle2 className="w-4 h-4" />
@@ -150,7 +147,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Tarjeta 4: Recaudación de Hoy (Enmascaramiento Financiero) */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
             <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
@@ -233,24 +229,24 @@ export default async function DashboardPage() {
                     {ord.device_info}
                   </td>
                   <td className="px-table-cell-padding-h py-table-cell-padding-v">
-                    {ord.status === 'in_progress' && (
+                    {ord.status === 'en_revision' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-container/20 text-primary border border-primary/30 uppercase">
-                        En Progreso
+                        En Revisión
                       </span>
                     )}
-                    {ord.status === 'ready' && (
+                    {ord.status === 'para_entregar' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
-                        Listo para Retiro
+                        Para Entregar
                       </span>
                     )}
-                    {ord.status === 'waiting_parts' && (
+                    {ord.status === 'esperando_repuesto' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-tertiary-container/20 text-tertiary border border-tertiary-container/30 uppercase">
                         Esperando Repuesto
                       </span>
                     )}
-                    {ord.status === 'received' && (
+                    {ord.status === 'recibido' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-variant text-on-surface-variant border border-outline-variant uppercase">
-                        Ingresado
+                        Recibido
                       </span>
                     )}
                   </td>

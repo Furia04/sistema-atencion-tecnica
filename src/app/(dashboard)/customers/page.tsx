@@ -19,7 +19,7 @@ import {
   History,
   ShieldCheck,
 } from 'lucide-react';
-import { Customer, Device, ServiceOrder } from '@/types';
+import { Customer, Device, ServiceOrder, OrderStatus } from '@/types';
 
 interface ExtendedCustomer extends Customer {
   devices_count: number;
@@ -37,7 +37,7 @@ const MOCK_CUSTOMERS: ExtendedCustomer[] = [
     email: 'sarah.connor@resistance.org',
     created_at: '2026-05-10',
     devices_count: 2,
-    orders_count: 3,
+    orders_count: 2,
     total_spent: 890.0,
   },
   {
@@ -60,8 +60,8 @@ const MOCK_CUSTOMERS: ExtendedCustomer[] = [
     phone: '+5491122334455',
     email: 'm.dyson@cyberdyne.com',
     created_at: '2026-07-01',
-    devices_count: 3,
-    orders_count: 4,
+    devices_count: 1,
+    orders_count: 1,
     total_spent: 1450.0,
   },
   {
@@ -152,7 +152,7 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
       tracking_code: '#WO-8892',
       device_id: 'dev-101',
       customer_id: 'cust-1',
-      status: 'in_progress',
+      status: 'en_revision',
       reported_fault: 'No enciende tras derrame de líquido sobre teclado',
       technical_diagnosis: 'Limpieza por ultrasonido y reemplazo de integrado IC de carga',
       final_price: 450.0,
@@ -165,7 +165,7 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
       tracking_code: '#WO-8510',
       device_id: 'dev-102',
       customer_id: 'cust-1',
-      status: 'delivered',
+      status: 'para_entregar',
       reported_fault: 'Cambio de pantalla y batería',
       technical_diagnosis: 'Modulo display OLED instalado correctamente',
       final_price: 440.0,
@@ -180,7 +180,7 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
       tracking_code: '#WO-8891',
       device_id: 'dev-201',
       customer_id: 'cust-2',
-      status: 'waiting_parts',
+      status: 'esperando_repuesto',
       reported_fault: 'Pantalla rota y módulo de carga dañado',
       technical_diagnosis: 'Repuesto en camino desde proveedor',
       final_price: 185.5,
@@ -195,7 +195,7 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
       tracking_code: '#WO-8818',
       device_id: 'dev-301',
       customer_id: 'cust-3',
-      status: 'delivered',
+      status: 'para_entregar',
       reported_fault: 'Sobrecalentamiento excesivo bajo carga de trabajo',
       technical_diagnosis: 'Reemplazo de pad térmico y micro soldadura en línea principal',
       final_price: 1450.0,
@@ -210,9 +210,9 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
       tracking_code: '#WO-8888',
       device_id: 'dev-401',
       customer_id: 'cust-4',
-      status: 'delivered',
+      status: 'abandonado',
       reported_fault: 'Cambio de batería original',
-      technical_diagnosis: 'Batería reemplazada y calibrada',
+      technical_diagnosis: 'Batería reemplazada pero cliente no retiró en plazo',
       final_price: 120.0,
       created_at: '2026-10-18 10:00',
       device_info: 'Samsung Galaxy S21',
@@ -221,7 +221,7 @@ const MOCK_ORDERS: Record<string, ServiceOrder[]> = {
 };
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<ExtendedCustomer[]>(MOCK_CUSTOMERS);
+  const [customers] = useState<ExtendedCustomer[]>(MOCK_CUSTOMERS);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cust-1');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -238,11 +238,27 @@ export default function CustomersPage() {
   const customerDevices = MOCK_DEVICES[selectedCustomer.id] || [];
   const customerOrders = MOCK_ORDERS[selectedCustomer.id] || [];
 
-  // Build WhatsApp direct URL
   const waMessage = encodeURIComponent(
     `Hola ${selectedCustomer.full_name}, nos comunicamos desde ProRepair Ops sobre sus equipos de servicio técnico.`
   );
   const waUrl = `https://wa.me/${selectedCustomer.phone.replace(/[^0-9]/g, '')}?text=${waMessage}`;
+
+  const renderStatusBadge = (status: OrderStatus) => {
+    switch (status) {
+      case 'recibido':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-slate-800 text-slate-300 border border-slate-700 uppercase">Recibido</span>;
+      case 'en_revision':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-primary-container/20 text-primary border border-primary/30 uppercase">En Revisión</span>;
+      case 'esperando_repuesto':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-tertiary-container/20 text-tertiary border border-tertiary-container/30 uppercase">Espera Repuesto</span>;
+      case 'esperando_cliente':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-purple-900/30 text-purple-300 border border-purple-500/30 uppercase">Esperando Resp. Cliente</span>;
+      case 'para_entregar':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-emerald-900/30 text-emerald-400 border border-emerald-500/20 uppercase">Para Entregar</span>;
+      case 'abandonado':
+        return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-error-container/30 text-error border border-error/30 uppercase">Abandonado</span>;
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-12">
@@ -453,21 +469,7 @@ export default function CustomersPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {ord.status === 'in_progress' && (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-primary-container/20 text-primary border border-primary/30 uppercase">
-                            En Progreso
-                          </span>
-                        )}
-                        {ord.status === 'waiting_parts' && (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-tertiary-container/20 text-tertiary border border-tertiary-container/30 uppercase">
-                            Espera Repuesto
-                          </span>
-                        )}
-                        {ord.status === 'delivered' && (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-label-caps font-bold bg-surface-variant text-on-surface-variant border border-outline-variant uppercase">
-                            Entregado
-                          </span>
-                        )}
+                        {renderStatusBadge(ord.status)}
                         <span className="text-xs text-on-surface font-bold font-mono-data">
                           ${ord.final_price?.toFixed(2)}
                         </span>
