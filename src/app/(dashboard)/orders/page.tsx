@@ -20,6 +20,7 @@ import {
   Phone,
   Copy,
   Check,
+  Printer,
 } from 'lucide-react';
 import { OrderStatus, ServiceOrder } from '@/types';
 
@@ -193,7 +194,6 @@ export default function ServiceOrdersPage() {
     }
   };
 
-  // Generador de Mensaje Pre-armado para WhatsApp según el estado
   const getWhatsAppMessage = (ord: ServiceOrder) => {
     const code = ord.tracking_code;
     const device = ord.device_info || 'equipo';
@@ -222,7 +222,7 @@ export default function ServiceOrdersPage() {
             Órdenes de Servicio
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Haz clic en cualquier orden para abrir la ventana emergente de edición y contacto.
+            Usa las acciones de la tabla para editar, imprimir ticket térmico (80mm) o ir al portal público B2C del cliente.
           </p>
         </div>
         <Link
@@ -350,17 +350,39 @@ export default function ServiceOrdersPage() {
                     {canSeeMoney ? `$${ord.final_price?.toFixed(2)}` : '--'}
                   </td>
                   <td className="px-table-cell-padding-h py-table-cell-padding-v text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* Acciones directas visibles */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingOrder(ord);
                         }}
                         className="p-1.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                        title="Abrir Ventana Emergente de Edición y Contacto"
+                        title="Editar Orden y Contactar Cliente"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.print();
+                        }}
+                        className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
+                        title="Imprimir Ticket Térmico 80mm"
+                      >
+                        <Receipt className="w-4 h-4" />
+                      </button>
+
+                      <Link
+                        href={`/track/${ord.tracking_code.replace('#', '')}`}
+                        target="_blank"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
+                        title="Abrir Portal B2C Cliente"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </Link>
                     </div>
                   </td>
                 </tr>
@@ -401,7 +423,7 @@ export default function ServiceOrdersPage() {
               </button>
             </div>
 
-            {/* Contenido del Modal (Scrollable) */}
+            {/* Contenido del Modal */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {/* SECCIÓN 1: CAMBIO DE ESTADO DE LA ORDEN */}
               <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
@@ -427,14 +449,13 @@ export default function ServiceOrdersPage() {
                 </select>
               </div>
 
-              {/* SECCIÓN 2: COMUNICACIÓN DIRECTA CON EL CLIENTE (WHATSAPP & B2C) */}
+              {/* SECCIÓN 2: COMUNICACIÓN DIRECTA CON EL CLIENTE */}
               <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
                 <label className="block font-label-caps text-xs text-emerald-400 uppercase font-bold flex items-center gap-1.5">
                   <MessageSquare className="w-4 h-4" /> 2. Comunicarse con el Cliente
                 </label>
 
                 <div className="flex flex-col sm:flex-row gap-3">
-                  {/* Botón WhatsApp */}
                   <a
                     href={`https://wa.me/${(editingOrder.customer_phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(getWhatsAppMessage(editingOrder))}`}
                     target="_blank"
@@ -444,7 +465,6 @@ export default function ServiceOrdersPage() {
                     <MessageSquare className="w-4 h-4" /> Enviar WhatsApp con Plantilla
                   </a>
 
-                  {/* Copiar Enlace B2C */}
                   <button
                     onClick={() => {
                       const link = `${window.location.origin}/track/${editingOrder.tracking_code.replace('#', '')}`;
@@ -464,6 +484,15 @@ export default function ServiceOrdersPage() {
                       </>
                     )}
                   </button>
+
+                  <Link
+                    href={`/track/${editingOrder.tracking_code.replace('#', '')}`}
+                    target="_blank"
+                    className="bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface px-3 py-2.5 rounded-lg font-title-sm text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    title="Ver Portal B2C"
+                  >
+                    <ExternalLink className="w-4 h-4 text-primary" /> Portal B2C
+                  </Link>
                 </div>
               </div>
 
@@ -544,19 +573,28 @@ export default function ServiceOrdersPage() {
             </div>
 
             {/* Footer del Modal */}
-            <div className="p-4 border-t border-outline-variant bg-surface-container-high flex justify-end gap-3">
+            <div className="p-4 border-t border-outline-variant bg-surface-container-high flex justify-between items-center">
               <button
-                onClick={() => setEditingOrder(null)}
-                className="px-5 py-2 rounded-lg text-xs font-title-sm text-on-surface-variant hover:bg-surface-container-highest"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-surface-bright border border-outline-variant rounded-lg text-xs font-title-sm text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1.5 font-bold"
               >
-                Cancelar
+                <Printer className="w-4 h-4 text-primary" /> Imprimir Ticket (80mm)
               </button>
-              <button
-                onClick={handleSaveModal}
-                className="bg-primary-container text-on-primary-container hover:bg-primary font-title-sm text-xs px-6 py-2 rounded-lg font-bold flex items-center gap-1.5 shadow-md"
-              >
-                <Save className="w-4 h-4" /> Guardar Cambios
-              </button>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingOrder(null)}
+                  className="px-5 py-2 rounded-lg text-xs font-title-sm text-on-surface-variant hover:bg-surface-container-highest"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveModal}
+                  className="bg-primary-container text-on-primary-container hover:bg-primary font-title-sm text-xs px-6 py-2 rounded-lg font-bold flex items-center gap-1.5 shadow-md"
+                >
+                  <Save className="w-4 h-4" /> Guardar Cambios
+                </button>
+              </div>
             </div>
           </div>
         </div>
