@@ -22,16 +22,16 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/orders', label: 'Service Orders', icon: Wrench },
-    { href: '/customers', label: 'Customers', icon: Users },
-    { href: '/inventory', label: 'Inventory', icon: Package },
-    { href: '/settings', label: 'Settings', icon: Settings },
+    { href: '/', label: 'Panel Principal', icon: LayoutDashboard },
+    { href: '/orders', label: 'Órdenes de Servicio', icon: Wrench },
+    { href: '/customers', label: 'Clientes', icon: Users },
+    { href: '/inventory', label: 'Inventario', icon: Package },
+    { href: '/settings', label: 'Configuración', icon: Settings },
   ];
 
   return (
     <aside className="fixed h-full w-sidebar-width left-0 top-0 border-r border-outline-variant bg-surface-container flex flex-col z-40 hidden md:flex">
-      {/* Brand Header */}
+      {/* Encabezado del Taller */}
       <div className="p-4 border-b border-outline-variant flex items-center gap-3">
         <div className="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
           <Wrench className="w-4 h-4" />
@@ -41,12 +41,12 @@ export function Sidebar({ user }: SidebarProps) {
             ProRepair Ops
           </h1>
           <p className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-            North Station
+            Sucursal Norte
           </p>
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navegación */}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
           {navItems.map((item) => {
@@ -72,7 +72,7 @@ export function Sidebar({ user }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* User Profile Footer & RBAC Indicator */}
+      {/* Perfil del Usuario e Indicador RBAC */}
       <div className="p-4 border-t border-outline-variant mt-auto">
         <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-container-low border border-outline-variant/40">
           <div className="w-9 h-9 rounded-full bg-primary-container/30 border border-primary/40 flex items-center justify-center text-primary">
@@ -84,7 +84,7 @@ export function Sidebar({ user }: SidebarProps) {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="font-label-caps text-[10px] text-primary uppercase font-bold px-1.5 py-0.5 bg-primary/10 rounded">
-                {user.role}
+                {user.role === 'owner' ? 'Dueño' : 'Técnico'}
               </span>
               {user.can_view_financials && (
                 <span className="font-label-caps text-[9px] text-emerald-400 font-bold" title="Acceso a Costos y Rentabilidad">

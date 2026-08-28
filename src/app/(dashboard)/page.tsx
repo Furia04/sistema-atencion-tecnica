@@ -12,12 +12,11 @@ import {
 import { UserProfile, ServiceOrder } from '@/types';
 import { hasFinancialAccess } from '@/lib/permissions';
 
-// Mock user loader (reemplazable por Supabase auth)
 async function getCurrentUser(): Promise<UserProfile> {
   return {
     id: 'user-001',
     email: 'admin@prorepair.com',
-    full_name: 'Tech J. Doe',
+    full_name: 'Carlos Dueño',
     role: 'owner',
     shop_id: 'shop-north-station',
     can_view_financials: true,
@@ -32,9 +31,9 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     device_id: 'dev-1',
     customer_id: 'cust-1',
     customer_name: 'Sarah Connor',
-    device_info: 'Cybernetic Arm Mod',
+    device_info: 'Computadora · ThinkPad T14',
     status: 'in_progress',
-    reported_fault: 'Joint motor calibration loss',
+    reported_fault: 'Perdió calibración de motor en bisagra',
     final_price: 450.0,
     created_at: '2026-08-27T10:45:00Z',
   },
@@ -45,9 +44,9 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     device_id: 'dev-2',
     customer_id: 'cust-2',
     customer_name: 'Kyle Reese',
-    device_info: 'Plasma Rifle Scope',
+    device_info: 'Smartphone · iPhone 13 Pro',
     status: 'ready',
-    reported_fault: 'Lens focus assembly misaligned',
+    reported_fault: 'Pantalla rota y módulo de carga dañado',
     final_price: 185.5,
     created_at: '2026-08-27T09:15:00Z',
   },
@@ -58,9 +57,9 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     device_id: 'dev-3',
     customer_id: 'cust-3',
     customer_name: 'T-800 Unit',
-    device_info: 'Optic Sensor Array',
+    device_info: 'Scanner Industrial · Zebra TC52',
     status: 'waiting_parts',
-    reported_fault: 'Red filter glass replacement',
+    reported_fault: 'Reemplazo de cristal de lente óptico',
     final_price: 320.0,
     created_at: '2026-08-26T16:20:00Z',
   },
@@ -71,9 +70,9 @@ const MOCK_RECENT_ORDERS: ServiceOrder[] = [
     device_id: 'dev-4',
     customer_id: 'cust-4',
     customer_name: 'Miles Dyson',
-    device_info: 'Neural Net Processor Board',
+    device_info: 'Placa Base · Servidor Procesador',
     status: 'received',
-    reported_fault: 'Overheating under heavy computation load',
+    reported_fault: 'Sobrecalentamiento bajo carga de procesamiento',
     final_price: 95.0,
     created_at: '2026-08-26T14:10:00Z',
   },
@@ -85,23 +84,23 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Title */}
+      {/* Encabezado */}
       <div>
         <h2 className="font-display-lg text-display-lg text-on-surface">
-          Dashboard Overview
+          Panel Principal del Taller
         </h2>
         <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-          Resumen técnico y operacional del taller en tiempo real.
+          Resumen técnico y operativo del taller en tiempo real.
         </p>
       </div>
 
-      {/* Bento Grid Summary Cards */}
+      {/* Tarjetas Bento de Resumen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
-        {/* Card 1: Total Orders */}
+        {/* Tarjeta 1: Total de Órdenes */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
-            <span className="font-label-caps text-label-caps text-on-surface-variant">
-              TOTAL ORDERS
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              TOTAL DE ÓRDENES
             </span>
             <span className="bg-primary/10 text-primary p-1.5 rounded-md">
               <ClipboardList className="w-4 h-4" />
@@ -115,11 +114,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 2: Pending Orders */}
+        {/* Tarjeta 2: Pendientes */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
-            <span className="font-label-caps text-label-caps text-on-surface-variant">
-              PENDING
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              PENDIENTES
             </span>
             <span className="bg-tertiary-container/20 text-tertiary p-1.5 rounded-md">
               <Clock className="w-4 h-4" />
@@ -129,15 +128,15 @@ export default async function DashboardPage() {
             42
           </div>
           <div className="font-mono-data text-mono-data text-on-surface-variant mt-1">
-            Requieren atención
+            Requieren atención del equipo
           </div>
         </div>
 
-        {/* Card 3: Ready for Pickup */}
+        {/* Tarjeta 3: Listas para Retiro */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
-            <span className="font-label-caps text-label-caps text-on-surface-variant">
-              READY FOR PICKUP
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              LISTAS PARA RETIRO
             </span>
             <span className="bg-emerald-500/20 text-emerald-400 p-1.5 rounded-md">
               <CheckCircle2 className="w-4 h-4" />
@@ -147,15 +146,15 @@ export default async function DashboardPage() {
             18
           </div>
           <div className="font-mono-data text-mono-data text-on-surface-variant mt-1">
-            Esperando retiro de cliente
+            Esperando entrega al cliente
           </div>
         </div>
 
-        {/* Card 4: Today's Revenue (Financial Masking) */}
+        {/* Tarjeta 4: Recaudación de Hoy (Enmascaramiento Financiero) */}
         <div className="bg-surface-container border border-outline-variant rounded-lg p-4 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-2">
-            <span className="font-label-caps text-label-caps text-on-surface-variant">
-              TODAY'S REVENUE
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              RECAUDACIÓN DE HOY
             </span>
             <span className="bg-primary/10 text-primary p-1.5 rounded-md">
               <DollarSign className="w-4 h-4" />
@@ -176,24 +175,24 @@ export default async function DashboardPage() {
                 <EyeOff className="w-6 h-6" /> ****
               </div>
               <div className="font-mono-data text-xs text-on-surface-variant/60 italic mt-1">
-                Restringido para técnico
+                Restringido para técnicos
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* Recent Orders Table Area */}
+      {/* Tabla de Órdenes Recientes */}
       <div className="bg-surface-container border border-outline-variant rounded-lg overflow-hidden flex flex-col">
         <div className="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-high">
-          <h3 className="font-title-sm text-title-sm text-on-surface">
+          <h3 className="font-title-sm text-title-sm text-on-surface font-bold">
             Órdenes Recientes
           </h3>
           <Link
             href="/orders"
-            className="font-label-caps text-label-caps text-primary hover:text-primary-container transition-colors flex items-center gap-1"
+            className="font-label-caps text-label-caps text-primary hover:text-primary-container transition-colors flex items-center gap-1 font-semibold"
           >
-            Ver Todas <ArrowRight className="w-3.5 h-3.5" />
+            Ver Todas las Órdenes <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
@@ -202,19 +201,19 @@ export default async function DashboardPage() {
             <thead>
               <tr className="bg-surface-container-highest border-b border-outline-variant font-label-caps text-label-caps text-on-surface-variant">
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-semibold">
-                  Order ID
+                  Código OT
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-semibold">
                   Cliente
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-semibold">
-                  Dispositivo
+                  Dispositivo / Equipo
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-semibold">
                   Estado
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-semibold text-right">
-                  Monto
+                  Monto Total
                 </th>
               </tr>
             </thead>
@@ -235,23 +234,23 @@ export default async function DashboardPage() {
                   </td>
                   <td className="px-table-cell-padding-h py-table-cell-padding-v">
                     {ord.status === 'in_progress' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-container/20 text-primary border border-primary/30">
-                        In Progress
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-primary-container/20 text-primary border border-primary/30 uppercase">
+                        En Progreso
                       </span>
                     )}
                     {ord.status === 'ready' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        Ready
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">
+                        Listo para Retiro
                       </span>
                     )}
                     {ord.status === 'waiting_parts' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-tertiary-container/20 text-tertiary border border-tertiary-container/30">
-                        Waiting Parts
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-tertiary-container/20 text-tertiary border border-tertiary-container/30 uppercase">
+                        Esperando Repuesto
                       </span>
                     )}
                     {ord.status === 'received' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-variant text-on-surface-variant border border-outline-variant">
-                        Received
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-variant text-on-surface-variant border border-outline-variant uppercase">
+                        Ingresado
                       </span>
                     )}
                   </td>

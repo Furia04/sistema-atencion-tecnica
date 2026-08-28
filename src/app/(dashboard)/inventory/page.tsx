@@ -36,7 +36,7 @@ const INITIAL_INVENTORY: InventoryItem[] = [
     sku: 'BAT-SS21-02',
     name: 'Batería Samsung S21 (4000mAh)',
     category: 'Baterías',
-    stock: 3, // Low stock!
+    stock: 3, // Bajo stock
     min_stock: 8,
     cost: 25.0,
     price: 75.0,
@@ -72,7 +72,6 @@ export default function InventoryPage() {
   const [inventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  // Simulación del permiso del usuario (Financial RBAC)
   const canSeeMoney = true;
 
   const lowStockCount = inventory.filter((i) => i.stock <= i.min_stock).length;
@@ -83,7 +82,7 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header & Actions */}
+      {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h2 className="font-display-lg text-display-lg text-on-surface">
@@ -94,21 +93,21 @@ export default function InventoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 bg-surface-container-high border border-outline-variant px-4 py-2 rounded-lg text-on-surface hover:bg-surface-container-highest transition-colors font-title-sm text-title-sm">
+          <button className="flex items-center gap-2 bg-surface-container-high border border-outline-variant px-4 py-2.5 rounded-lg text-on-surface hover:bg-surface-container-highest transition-colors font-title-sm text-title-sm">
             <Filter className="w-4 h-4" /> Filtros
           </button>
-          <button className="flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2 rounded-lg hover:bg-inverse-primary transition-colors font-title-sm text-title-sm shadow-[0_0_10px_rgba(124,58,237,0.2)]">
+          <button className="flex items-center gap-2 bg-primary-container text-on-primary-container px-4 py-2.5 rounded-lg hover:bg-inverse-primary transition-colors font-title-sm text-title-sm shadow-sm font-semibold">
             <Plus className="w-4 h-4" /> Agregar Repuesto
           </button>
         </div>
       </div>
 
-      {/* KPI Stats Row (Bento Cards) */}
+      {/* Tarjetas Bento de Resumen */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-surface-container p-4 rounded-xl border border-outline-variant flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-              TOTAL ÍTEMS
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              TOTAL DE REPUESTOS
             </span>
             <Package className="w-5 h-5 text-primary" />
           </div>
@@ -122,12 +121,12 @@ export default function InventoryPage() {
 
         <div className="bg-surface-container p-4 rounded-xl border border-outline-variant flex flex-col gap-2 relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
               BAJO STOCK
             </span>
             <AlertTriangle className="w-5 h-5 text-error" />
           </div>
-          <div className="font-headline-md text-headline-md text-error">
+          <div className="font-headline-md text-headline-md text-error font-bold">
             {lowStockCount}
           </div>
           <div className="font-body-sm text-body-sm text-on-surface-variant">
@@ -137,8 +136,8 @@ export default function InventoryPage() {
 
         <div className="bg-surface-container p-4 rounded-xl border border-outline-variant flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-              VALOR (COSTO)
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
+              VALOR (COSTO COMPRA)
             </span>
             <DollarSign className="w-5 h-5 text-tertiary" />
           </div>
@@ -148,7 +147,7 @@ export default function InventoryPage() {
                 $45,230.00
               </div>
               <div className="font-body-sm text-body-sm text-on-surface-variant">
-                Valor total de compra en inventario
+                Inversión total en stock
               </div>
             </>
           ) : (
@@ -157,7 +156,7 @@ export default function InventoryPage() {
                 <EyeOff className="w-5 h-5" /> ****
               </div>
               <div className="font-body-sm text-xs text-on-surface-variant/60 italic">
-                Restringido por permiso financiero
+                Restringido para técnicos
               </div>
             </>
           )}
@@ -165,7 +164,7 @@ export default function InventoryPage() {
 
         <div className="bg-surface-container p-4 rounded-xl border border-outline-variant flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
+            <span className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
               GANANCIA POTENCIAL
             </span>
             <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -185,16 +184,16 @@ export default function InventoryPage() {
                 <EyeOff className="w-5 h-5" /> ****
               </div>
               <div className="font-body-sm text-xs text-on-surface-variant/60 italic">
-                Restringido por permiso financiero
+                Restringido para técnicos
               </div>
             </>
           )}
         </div>
       </div>
 
-      {/* High Density Inventory Table */}
+      {/* Tabla de Alta Densidad */}
       <div className="bg-surface-container border border-outline-variant rounded-xl overflow-hidden flex flex-col">
-        {/* Category Tool Filter Bar */}
+        {/* Filtros de Categoría */}
         <div className="p-3 border-b border-outline-variant bg-surface-container-high flex flex-wrap gap-3 items-center justify-between">
           <div className="flex items-center gap-2 overflow-x-auto">
             {['all', 'Pantallas', 'Baterías', 'Puertos', 'Accesorios'].map(
@@ -202,9 +201,9 @@ export default function InventoryPage() {
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
-                  className={`px-3 py-1 rounded-full font-label-caps text-label-caps border transition-colors ${
+                  className={`px-3.5 py-1.5 rounded-full font-label-caps text-label-caps border transition-colors ${
                     categoryFilter === cat
-                      ? 'bg-secondary-container text-on-secondary-container border-primary/30'
+                      ? 'bg-secondary-container text-on-secondary-container border-primary/30 font-bold'
                       : 'bg-surface border-outline-variant text-on-surface-variant hover:bg-surface-container-highest'
                   }`}
                 >
@@ -215,7 +214,7 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* Tabla */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -224,7 +223,7 @@ export default function InventoryPage() {
                   SKU / Código
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant">
-                  Nombre Repuesto
+                  Nombre del Repuesto
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant">
                   Categoría

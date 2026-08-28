@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, Calendar, Edit, Receipt, ExternalLink } from 'lucide-react';
-import { OrderStatus, ServiceOrder } from '@/types';
+import { ServiceOrder } from '@/types';
 
 const INITIAL_ORDERS: ServiceOrder[] = [
   {
@@ -16,7 +16,7 @@ const INITIAL_ORDERS: ServiceOrder[] = [
     device_info: 'Laptop · ThinkPad T14',
     status: 'in_progress',
     reported_fault: 'No enciende tras derrame de líquido',
-    estimated_completion: 'Oct 24, 14:00',
+    estimated_completion: '24 Oct, 14:00 hs',
     final_price: 450.0,
     created_at: '2026-10-22T08:00:00Z',
   },
@@ -30,7 +30,7 @@ const INITIAL_ORDERS: ServiceOrder[] = [
     device_info: 'Smartphone · iPhone 13 Pro',
     status: 'waiting_parts',
     reported_fault: 'Pantalla rota y módulo de carga dañado',
-    estimated_completion: 'Oct 25, 11:30',
+    estimated_completion: '25 Oct, 11:30 hs',
     final_price: 185.5,
     created_at: '2026-10-22T09:15:00Z',
   },
@@ -41,10 +41,10 @@ const INITIAL_ORDERS: ServiceOrder[] = [
     device_id: 'dev-3',
     customer_id: 'cust-3',
     customer_name: 'Global Logistics LLC',
-    device_info: 'Scanner · Zebra TC52',
+    device_info: 'Scanner Industrial · Zebra TC52',
     status: 'ready',
-    reported_fault: 'Calibración de cristal láser',
-    estimated_completion: 'Oct 23, 10:30',
+    reported_fault: 'Calibración de cristal láser y módulo óptico',
+    estimated_completion: '23 Oct, 10:30 hs',
     final_price: 95.0,
     created_at: '2026-10-21T14:20:00Z',
   },
@@ -72,7 +72,7 @@ const INITIAL_ORDERS: ServiceOrder[] = [
     device_info: 'Celular · Samsung S21',
     status: 'delivered',
     reported_fault: 'Cambio de batería original',
-    estimated_completion: 'Oct 19, 17:00',
+    estimated_completion: '19 Oct, 17:00 hs',
     final_price: 120.0,
     created_at: '2026-10-18T10:00:00Z',
   },
@@ -83,7 +83,6 @@ export default function ServiceOrdersPage() {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Simulamos que el usuario tiene acceso financiero
   const canSeeMoney = true;
 
   const filteredOrders = orders.filter((ord) => {
@@ -98,42 +97,42 @@ export default function ServiceOrdersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header */}
+      {/* Encabezado */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="font-display-lg text-display-lg text-on-surface">
-            Service Orders
+            Órdenes de Servicio
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Gestión y seguimiento continuo de las órdenes del taller.
+            Gestión y seguimiento de las reparaciones del taller.
           </p>
         </div>
         <Link
           href="/orders/new"
-          className="bg-primary-container text-on-primary-container hover:bg-inverse-primary px-4 py-2 rounded-lg font-title-sm text-title-sm flex items-center gap-2 transition-colors shadow-sm"
+          className="bg-primary-container text-on-primary-container hover:bg-inverse-primary px-4 py-2.5 rounded-lg font-title-sm text-title-sm flex items-center gap-2 transition-colors shadow-sm font-semibold"
         >
           <Plus className="w-4 h-4" /> Nueva Orden (Ingreso)
         </Link>
       </div>
 
-      {/* Filter Bar */}
+      {/* Barra de Filtros */}
       <div className="bg-surface-container-low border border-outline-variant rounded-lg p-unit flex flex-col xl:flex-row gap-4 items-center justify-between">
-        {/* Quick Filter Buttons */}
+        {/* Botones de Filtro Rápido */}
         <div className="flex flex-wrap gap-2 w-full xl:w-auto">
           {[
-            { id: 'all', label: `All (${orders.length})` },
-            { id: 'received', label: 'Received' },
-            { id: 'in_progress', label: 'In Progress' },
-            { id: 'waiting_parts', label: 'Waiting Parts' },
-            { id: 'ready', label: 'Ready' },
-            { id: 'delivered', label: 'Delivered' },
+            { id: 'all', label: `Todas (${orders.length})` },
+            { id: 'received', label: 'Ingresadas' },
+            { id: 'in_progress', label: 'En Progreso' },
+            { id: 'waiting_parts', label: 'Espera Repuesto' },
+            { id: 'ready', label: 'Listas para Retiro' },
+            { id: 'delivered', label: 'Entregadas' },
           ].map((f) => (
             <button
               key={f.id}
               onClick={() => setActiveFilter(f.id)}
               className={`px-3 py-1.5 rounded-full font-label-caps text-label-caps border transition-colors ${
                 activeFilter === f.id
-                  ? 'bg-surface-container-highest border-outline-variant text-on-surface'
+                  ? 'bg-surface-container-highest border-outline-variant text-on-surface font-bold'
                   : 'bg-transparent border-outline text-on-surface-variant hover:bg-surface-container'
               }`}
             >
@@ -142,7 +141,7 @@ export default function ServiceOrdersPage() {
           ))}
         </div>
 
-        {/* Search & Date Controls */}
+        {/* Buscador */}
         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -160,29 +159,29 @@ export default function ServiceOrdersPage() {
         </div>
       </div>
 
-      {/* High Density Table */}
+      {/* Tabla de Alta Densidad */}
       <div className="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead className="bg-surface-container border-b border-outline-variant">
               <tr>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Tracking Code
+                  Código de Seguimiento
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
                   Cliente
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Dispositivo
+                  Dispositivo / Equipo
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
                   Estado
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Estimación
+                  Estimación de Entrega
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
-                  Total
+                  Monto Total
                 </th>
                 <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
                   Acciones
@@ -208,30 +207,30 @@ export default function ServiceOrdersPage() {
                     {ord.status === 'in_progress' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary-container/30 text-primary border border-primary/20 text-[10px] uppercase font-bold tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 animate-pulse" />
-                        In Progress
+                        En Progreso
                       </span>
                     )}
                     {ord.status === 'waiting_parts' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-tertiary-container/30 text-tertiary-fixed border border-tertiary-fixed/20 text-[10px] uppercase font-bold tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-tertiary-fixed mr-1.5" />
-                        Waiting Parts
+                        Espera Repuesto
                       </span>
                     )}
                     {ord.status === 'ready' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-500/20 text-[10px] uppercase font-bold tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
-                        Ready
+                        Listo para Retiro
                       </span>
                     )}
                     {ord.status === 'cancelled' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container/30 text-error border border-error/20 text-[10px] uppercase font-bold tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-error mr-1.5" />
-                        Cancelled
+                        Cancelado
                       </span>
                     )}
                     {ord.status === 'delivered' && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-variant text-on-surface-variant border border-outline-variant text-[10px] uppercase font-bold tracking-wide">
-                        Delivered
+                        Entregado
                       </span>
                     )}
                   </td>
@@ -245,7 +244,7 @@ export default function ServiceOrdersPage() {
                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         className="p-1 rounded text-on-surface-variant hover:text-primary hover:bg-surface-container-highest transition-colors"
-                        title="Editar"
+                        title="Editar Orden"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
