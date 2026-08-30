@@ -110,7 +110,7 @@ export default function DashboardPage() {
             Panel Principal del Taller
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Métricas reales obtenidas en tiempo real de tu base de datos Supabase.
+            Resumen técnico y operativo del taller en tiempo real.
           </p>
         </div>
       </div>

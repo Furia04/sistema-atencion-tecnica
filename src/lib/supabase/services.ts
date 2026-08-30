@@ -17,7 +17,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       .single();
 
     if (error || !data) {
-      // Retornar objeto perfil con id de auth y shop predeterminado
       return {
         id: user.id,
         email: user.email || '',
@@ -30,7 +29,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 
     return data;
   } catch (err) {
-    console.warn('Error al obtener perfil de usuario:', err);
     return null;
   }
 }
@@ -88,7 +86,6 @@ export async function createServiceOrderWithDevice(orderPayload: {
   const profile = await getCurrentUserProfile();
   const shopId = profile?.shop_id || '00000000-0000-0000-0000-000000000000';
 
-  // 1. Insertar o buscar cliente por DNI / Teléfono
   let customerId = '';
   if (orderPayload.customer.document_id) {
     const { data: existingCust } = await supabase
@@ -119,7 +116,6 @@ export async function createServiceOrderWithDevice(orderPayload: {
     customerId = newCust.id;
   }
 
-  // 2. Insertar dispositivo
   const { data: newDevice, error: devErr } = await supabase
     .from('devices')
     .insert([{
@@ -136,7 +132,6 @@ export async function createServiceOrderWithDevice(orderPayload: {
 
   if (devErr) throw devErr;
 
-  // 3. Insertar orden de servicio
   const randomCode = `#WO-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const { data: newOrder, error: ordErr } = await supabase
@@ -216,37 +211,63 @@ export async function fetchInventory(): Promise<InventoryItem[]> {
   }
 }
 
-export async function createInventoryItem(item: Partial<InventoryItem>) {
-  const profile = await getCurrentUserProfile();
-  const shopId = profile?.shop_id || '00000000-0000-0000-0000-000000000000';
-
-  const { data, error } = await supabase
-    .from('inventory')
-    .insert([{ ...item, shop_id: shopId }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
 // =======================================================
-// SEGUIMIENTO B2C PÚBLICO
+// SEGUIMIENTO B2C PÚBLICO POR DNI O CÓDIGO DE ORDEN
 // =======================================================
 
-export async function fetchPublicOrderByTrackingCode(trackingCode: string) {
-  const code = trackingCode.startsWith('#') ? trackingCode : `#${trackingCode}`;
-  
-  const { data, error } = await supabase
-    .from('service_orders')
-    .select(`
-      *,
-      shops ( name, settings ),
-      devices ( type, brand, model, serial_number, custom_attributes )
-    `)
-    .eq('tracking_code', code)
-    .maybeSingle();
+export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promise<ServiceOrder[]> {
+  const cleanQuery = query.trim().toUpperCase();
+  if (!cleanQuery) return [];
 
-  if (error) throw error;
-  return data;
+  try {
+    // 1. Buscar si la consulta coincide con un DNI en customers
+    const { data: customerData } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('document_id', cleanQuery);
+
+    const customerIds = (customerData || []).map((c: any) => c.id);
+
+    // 2. Formatear código OT si aplica (#WO-xxxx o WO-xxxx)
+    const codeQuery = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
+
+    // 3. Consultar service_orders por customer_id o tracking_code
+    let supabaseQuery = supabase
+      .from('service_orders')
+      .select(`
+        *,
+        customers ( full_name, phone, document_id ),
+        devices ( type, brand, model, serial_number )
+      `);
+
+    if (customerIds.length > 0) {
+      supabaseQuery = supabaseQuery.or(`customer_id.in.(${customerIds.join(',')}),tracking_code.eq.${codeQuery}`);
+    } else {
+      supabaseQuery = supabaseQuery.eq('tracking_code', codeQuery);
+    }
+
+    const { data, error } = await supabaseQuery.order('created_at', { ascending: false });
+
+    if (error) return [];
+
+    return (data || []).map((ord: any) => ({
+      id: ord.id,
+      shop_id: ord.shop_id,
+      tracking_code: ord.tracking_code,
+      device_id: ord.device_id,
+      customer_id: ord.customer_id,
+      status: ord.status,
+      reported_fault: ord.reported_fault,
+      technical_diagnosis: ord.technical_diagnosis,
+      estimated_completion: ord.estimated_completion,
+      final_price: ord.final_price,
+      created_at: ord.created_at,
+      customer_name: ord.customers?.full_name || 'Cliente',
+      customer_phone: ord.customers?.phone || '',
+      customer_document_id: ord.customers?.document_id || '',
+      device_info: `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
+    }));
+  } catch (err) {
+    return [];
+  }
 }
