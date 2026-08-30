@@ -40,7 +40,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
   const shopMap = new Map<string, Shop>();
 
-  // 1. Talleres iniciales base
+  // 1. Talleres iniciales de ejemplo
   const defaultShops: Shop[] = [
     {
       id: 'shop-north-station',
@@ -64,9 +64,9 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     },
   ];
 
-  defaultShops.forEach((s) => shopMap.set(s.id, s));
+  defaultShops.forEach((s) => shopMap.set(s.owner_email.toLowerCase(), s));
 
-  // 2. Intentar consultar la base de datos Supabase
+  // 2. Consultar la tabla 'shops' en Supabase
   try {
     const { data: dbShops } = await supabase
       .from('shops')
@@ -75,10 +75,11 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
 
     if (dbShops && dbShops.length > 0) {
       dbShops.forEach((s: any) => {
-        shopMap.set(s.id, {
-          id: s.id,
-          name: s.name || 'Taller Registrado',
-          owner_email: s.owner_email || s.email || 'usuario@taller.com',
+        const emailKey = (s.owner_email || s.email || s.id).toLowerCase();
+        shopMap.set(emailKey, {
+          id: s.id || `shop-${emailKey}`,
+          name: s.name || `Taller (${emailKey})`,
+          owner_email: s.owner_email || s.email || emailKey,
           subscription_status: s.subscription_status || 'pending_payment',
           plan_price: s.plan_price || 15000,
           active: s.active ?? false,
@@ -91,40 +92,74 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     console.warn('Error Supabase fetchAllShopsForAdmin');
   }
 
-  // 3. Consultar usuario autenticado actual
+  // 3. Consultar la tabla 'users' de Supabase para capturar todos los correos registrados
   try {
-    const profile = await getCurrentUserProfile();
-    if (profile && profile.email) {
-      const existingShop = Array.from(shopMap.values()).find(s => s.owner_email === profile.email);
-      if (!existingShop) {
-        const userShopId = profile.shop_id || profile.id;
-        shopMap.set(userShopId, {
-          id: userShopId,
-          name: (profile as any).shop_name || `Taller de ${profile.full_name || profile.email}`,
-          owner_email: profile.email,
-          subscription_status: 'pending_payment',
-          plan_price: 15000,
-          active: false,
-          created_at: new Date().toISOString(),
-          orders_count: 1,
-        });
-      }
+    const { data: dbUsers } = await supabase
+      .from('users')
+      .select('*');
+
+    if (dbUsers && dbUsers.length > 0) {
+      dbUsers.forEach((u: any) => {
+        if (u.email) {
+          const emailKey = u.email.toLowerCase();
+          const existing = shopMap.get(emailKey);
+
+          shopMap.set(emailKey, {
+            id: u.shop_id || u.id || existing?.id || `shop-${emailKey}`,
+            name: (u.user_metadata?.shop_name) || existing?.name || `Taller de ${u.full_name || u.email}`,
+            owner_email: u.email,
+            subscription_status: existing?.subscription_status || 'pending_payment',
+            plan_price: 15000,
+            active: existing?.active ?? false,
+            created_at: u.created_at || existing?.created_at || new Date().toISOString(),
+            orders_count: existing?.orders_count || 1,
+          });
+        }
+      });
     }
   } catch (err) {
-    // Ignorar si no está autenticado
+    console.warn('Error al consultar usuarios de Supabase');
   }
 
-  // 4. Cargar registrados en localStorage
+  // 4. Consultar usuario actualmente logueado en la sesión activa
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && user.email) {
+      const emailKey = user.email.toLowerCase();
+      const existing = shopMap.get(emailKey);
+      const userShopName = user.user_metadata?.shop_name || (user.user_metadata?.full_name ? `Taller de ${user.user_metadata.full_name}` : `Taller (${user.email})`);
+
+      shopMap.set(emailKey, {
+        id: user.id || existing?.id || `shop-${user.id}`,
+        name: existing?.name && !existing.name.includes('usuario@taller.com') ? existing.name : userShopName,
+        owner_email: user.email,
+        subscription_status: existing?.subscription_status || 'pending_payment',
+        plan_price: 15000,
+        active: existing?.active ?? false,
+        created_at: user.created_at || new Date().toISOString(),
+        orders_count: existing?.orders_count || 1,
+      });
+    }
+  } catch (err) {
+    // Ignorar si no hay sesión activa
+  }
+
+  // 5. Cargar talleres guardados en localStorage
   if (typeof window !== 'undefined') {
     try {
       const storedStr = localStorage.getItem('prorepair_registered_shops');
       if (storedStr) {
         const localShops: Shop[] = JSON.parse(storedStr);
         localShops.forEach((s) => {
-          if (s.id) {
-            shopMap.set(s.id, {
-              ...(shopMap.get(s.id) || s),
+          if (s.owner_email && !s.owner_email.includes('usuario@taller.com')) {
+            const emailKey = s.owner_email.toLowerCase();
+            const existing = shopMap.get(emailKey);
+            shopMap.set(emailKey, {
+              ...existing,
               ...s,
+              id: existing?.id || s.id,
+              name: s.name && !s.name.includes('Taller Registrado') ? s.name : (existing?.name || `Taller (${s.owner_email})`),
+              owner_email: s.owner_email,
             });
           }
         });
@@ -133,15 +168,15 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
       console.warn('Error localStorage shops');
     }
 
-    // 5. APLICAR SOBREESCRITURAS DE ESTADO (OVERRIDES PERMANENTES EN LOCALSTORAGE)
+    // 6. APLICAR SOBREESCRITURAS DE ESTADO (OVERRIDES PERMANENTES EN LOCALSTORAGE)
     try {
       const overridesStr = localStorage.getItem('prorepair_shop_overrides');
       if (overridesStr) {
         const overrides: Record<string, { subscription_status: any; active: boolean }> = JSON.parse(overridesStr);
-        Object.entries(overrides).forEach(([shopId, statusData]) => {
-          shopMap.forEach((shop, key) => {
-            if (shop.id === shopId || shop.owner_email === shopId) {
-              shopMap.set(key, {
+        Object.entries(overrides).forEach(([keyId, statusData]) => {
+          shopMap.forEach((shop, emailKey) => {
+            if (shop.id === keyId || shop.owner_email.toLowerCase() === keyId.toLowerCase()) {
+              shopMap.set(emailKey, {
                 ...shop,
                 subscription_status: statusData.subscription_status,
                 active: statusData.active,
@@ -155,7 +190,12 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     }
   }
 
-  return Array.from(shopMap.values());
+  // Filtrar entradas vacías o génericas inválidas si existen alternativas
+  const finalShops = Array.from(shopMap.values()).filter(
+    (s) => s.owner_email && s.owner_email !== 'usuario@taller.com'
+  );
+
+  return finalShops;
 }
 
 export async function updateShopSubscriptionStatus(
@@ -177,10 +217,9 @@ export async function updateShopSubscriptionStatus(
     console.warn('Actualización Supabase omitida o fallback');
   }
 
-  // 2. Guardar sobreescritura PERMANENTE en localStorage
+  // 2. Guardar sobreescritura PERMANENTE en localStorage por ID y por EMAIL
   if (typeof window !== 'undefined') {
     try {
-      // Guardar en diccionario de overrides
       const overridesStr = localStorage.getItem('prorepair_shop_overrides');
       const overrides: Record<string, { subscription_status: any; active: boolean }> = overridesStr
         ? JSON.parse(overridesStr)
