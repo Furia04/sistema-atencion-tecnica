@@ -118,9 +118,12 @@ export default function LoginPage() {
               <label className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
                 Contraseña
               </label>
-              <a href="#" className="font-label-caps text-[11px] text-primary hover:underline">
+              <Link
+                href="/reset-password"
+                className="font-body-sm text-xs text-primary hover:underline font-semibold"
+              >
                 ¿Olvidaste tu contraseña?
-              </a>
+              </Link>
             </div>
             <div className="relative">
               <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
