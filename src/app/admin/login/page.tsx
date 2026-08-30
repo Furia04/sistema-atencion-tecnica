@@ -35,15 +35,25 @@ export default function SuperAdminLoginPage() {
       const user = authData.user;
 
       // 2. VERIFICACIÓN DE SEGURIDAD DE ROL SUPERADMIN
-      // Consultar el rol del usuario en la tabla 'users' o en 'user_metadata'
       let isSuperAdmin = false;
 
-      // a) Verificar en user_metadata
+      // a) Lista explícita de correos del dueño del SaaS
+      const allowedAdminEmails = [
+        'furiaortiz04@gmail.com',
+        'admin@prorepair.com',
+        process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
+      ].filter(Boolean);
+
+      if (allowedAdminEmails.includes(user.email)) {
+        isSuperAdmin = true;
+      }
+
+      // b) Verificar en user_metadata
       if (user.user_metadata?.role === 'superadmin') {
         isSuperAdmin = true;
       }
 
-      // b) Verificar en tabla pública 'users'
+      // c) Verificar en tabla pública 'users'
       if (!isSuperAdmin) {
         const { data: profile } = await supabase
           .from('users')
@@ -56,20 +66,10 @@ export default function SuperAdminLoginPage() {
         }
       }
 
-      // c) Verificar si coincide con el correo exclusivo del dueño del SaaS
-      const allowedAdminEmails = [
-        'admin@prorepair.com',
-        process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL,
-      ].filter(Boolean);
-
-      if (allowedAdminEmails.includes(user.email)) {
-        isSuperAdmin = true;
-      }
-
       // 3. SI NO ES SUPERADMIN, DENEGAR ACCESO Y CERRAR SESIÓN
       if (!isSuperAdmin) {
         await supabase.auth.signOut();
-        setErrorMessage('ACCESO DENEGADO: Tu cuenta no tiene permisos de Super Administrador en la base de datos.');
+        setErrorMessage('ACCESO DENEGADO: Tu cuenta no tiene permisos de Super Administrador.');
         setLoading(false);
         return;
       }
@@ -104,7 +104,7 @@ export default function SuperAdminLoginPage() {
             Autenticación Administrador
           </h1>
           <p className="font-body-sm text-xs text-on-surface-variant">
-            Acceso estrictamente restringido a cuentas con rol <strong className="text-purple-400 font-mono">superadmin</strong> en Supabase.
+            Acceso estrictamente restringido al dueño de la plataforma ProRepair Ops.
           </p>
         </div>
 
@@ -126,7 +126,7 @@ export default function SuperAdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@prorepair.com"
+                placeholder="furiaortiz04@gmail.com"
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
               />
             </div>

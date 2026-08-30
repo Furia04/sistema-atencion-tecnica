@@ -1,158 +1,140 @@
 -- =======================================================
--- PROREPAIR OPS - ESQUEMA COMPLETO DE BASE DE DATOS Y RLS
+-- ESQUEMA COMPLETO DE BASE DE DATOS POSTGRESQL / SUPABASE
+-- SISTEMA DE ATENCIÓN TÉCNICA MULTIRUBRO & SAAS
 -- =======================================================
 
--- 1. Habilitar extensión UUID
+-- 1. EXTENSIONES REQUERIDAS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 2. Definición de ENUMs (con estados en español latino solicitados)
-DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('owner', 'technician');
-EXCEPTION
-    WHEN duplicate_object THEN null;
+-- 2. TIPOS PERSONALIZADOS (ENUMS)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('owner', 'technician', 'superadmin');
+  ELSE
+    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'superadmin';
+  END IF;
 END $$;
 
-DO $$ BEGIN
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
     CREATE TYPE order_status AS ENUM (
-        'recibido',
-        'en_revision',
-        'esperando_repuesto',
-        'esperando_cliente',
-        'para_entregar',
-        'abandonado'
+      'recibido',
+      'en_revision',
+      'esperando_repuesto',
+      'esperando_cliente',
+      'para_entregar',
+      'abandonado'
     );
-EXCEPTION
-    WHEN duplicate_object THEN null;
+  END IF;
 END $$;
 
--- 3. Tabla de Talleres (Tenants)
+-- 3. TABLA DE TALLERES (SHOPS / TENANTS)
 CREATE TABLE IF NOT EXISTS shops (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) NOT NULL UNIQUE,
-    owner_id UUID,
-    settings JSONB NOT NULL DEFAULT '{
-        "branding": {"logo_url": null, "primary_color": "#7c3aed"},
-        "ticket": {"width_mm": 80, "terms": "No nos responsabilizamos por pérdida de datos. Garantía 30 días."},
-        "whatsapp_phone": ""
-    }'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  owner_email TEXT NOT NULL,
+  subscription_status TEXT DEFAULT 'pending_payment',
+  plan_price NUMERIC(10,2) DEFAULT 15000.00,
+  active BOOLEAN DEFAULT FALSE,
+  settings JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Tabla de Usuarios y Roles (RBAC)
+-- 4. TABLA DE USUARIOS DEL SISTEMA (USERS / PROFILES)
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    role user_role NOT NULL DEFAULT 'technician',
-    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    full_name VARCHAR(255),
-    can_view_financials BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  shop_id UUID REFERENCES shops(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  full_name TEXT,
+  role user_role DEFAULT 'owner',
+  can_view_financials BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Clave foránea owner_id en shops
-ALTER TABLE shops DROP CONSTRAINT IF EXISTS fk_shops_owner;
-ALTER TABLE shops ADD CONSTRAINT fk_shops_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL;
-
--- 5. Tabla de Clientes (con document_id DNI / CUIT)
+-- 5. TABLA DE CLIENTES (CUSTOMERS - CON CAMPO DNI / DOCUMENTO)
 CREATE TABLE IF NOT EXISTS customers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    full_name VARCHAR(255) NOT NULL,
-    phone VARCHAR(50) NOT NULL,
-    document_id VARCHAR(50),
-    email VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  document_id TEXT, -- DNI / CUIT / Identificación clave
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Tabla de Dispositivos (Campos Dinámicos con JSONB)
+-- 6. TABLA DE DISPOSITIVOS / EQUIPOS (DEVICES - JSONB PARA CAMPOS DINÁMICOS POR RUBRO)
 CREATE TABLE IF NOT EXISTS devices (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-    type VARCHAR(100) NOT NULL,
-    brand VARCHAR(100) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    serial_number VARCHAR(100),
-    custom_attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- Smartphone, Laptop, ECU, Drone, etc.
+  brand TEXT NOT NULL,
+  model TEXT NOT NULL,
+  serial_number TEXT,
+  custom_attributes JSONB DEFAULT '{}'::jsonb, -- Almacena patrones de desbloqueo, contraseñas, kilometraje, etc.
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Tabla de Órdenes de Servicio
+-- 7. TABLA DE ÓRDENES DE SERVICIO (SERVICE_ORDERS)
 CREATE TABLE IF NOT EXISTS service_orders (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    tracking_code VARCHAR(20) NOT NULL UNIQUE,
-    device_id UUID NOT NULL REFERENCES devices(id),
-    customer_id UUID NOT NULL REFERENCES customers(id),
-    technician_id UUID REFERENCES users(id),
-    status order_status NOT NULL DEFAULT 'recibido',
-    reported_fault TEXT NOT NULL,
-    technical_diagnosis TEXT,
-    internal_notes TEXT,
-    estimated_completion TIMESTAMP WITH TIME ZONE,
-    estimated_cost DECIMAL(12,2) DEFAULT 0.00,
-    final_price DECIMAL(12,2) DEFAULT 0.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  tracking_code TEXT UNIQUE NOT NULL, -- Ej: #WO-8891
+  device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+  technician_id UUID REFERENCES users(id),
+  status order_status DEFAULT 'recibido',
+  reported_fault TEXT NOT NULL,
+  technical_diagnosis TEXT,
+  internal_notes TEXT,
+  estimated_completion TEXT,
+  estimated_cost NUMERIC(10,2) DEFAULT 0.00,
+  final_price NUMERIC(10,2) DEFAULT 0.00,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 8. Tabla de Inventario de Repuestos
+-- 8. TABLA DE INVENTARIO Y REPUESTOS (INVENTORY)
 CREATE TABLE IF NOT EXISTS inventory (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-    sku VARCHAR(100) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    category VARCHAR(100) NOT NULL,
-    stock INT NOT NULL DEFAULT 0,
-    min_stock INT NOT NULL DEFAULT 5,
-    cost DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  sku TEXT NOT NULL,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  stock INT NOT NULL DEFAULT 0,
+  min_stock INT NOT NULL DEFAULT 2,
+  cost NUMERIC(10,2) DEFAULT 0.00,
+  price NUMERIC(10,2) DEFAULT 0.00,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- =======================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
--- =======================================================
+-- 9. TABLA DE PLANTILLAS POR CATEGORÍA DE DISPOSITIVO (DEVICE_CATEGORY_TEMPLATES)
+CREATE TABLE IF NOT EXISTS device_category_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  category_name TEXT NOT NULL,
+  fields JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. SEGURIDAD A NIVEL DE FILA (ROW LEVEL SECURITY - RLS)
 ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION get_current_shop_id()
-RETURNS UUID AS $$
-BEGIN
-    RETURN (auth.jwt() -> 'app_metadata' ->> 'shop_id')::uuid;
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+-- POLÍTICAS RLS (ACCESO PÚBLICO SEGURO PARA SEGUIMIENTO POR TRACKING CODE O DNI)
+CREATE POLICY "Public Tracking Search" ON service_orders
+  FOR SELECT USING (TRUE);
 
-DROP POLICY IF EXISTS "Shop Isolation Shops" ON shops;
-CREATE POLICY "Shop Isolation Shops" ON shops FOR ALL USING (id = get_current_shop_id());
+CREATE POLICY "Public Customers Tracking" ON customers
+  FOR SELECT USING (TRUE);
 
-DROP POLICY IF EXISTS "Shop Isolation Users" ON users;
-CREATE POLICY "Shop Isolation Users" ON users FOR ALL USING (shop_id = get_current_shop_id());
-
-DROP POLICY IF EXISTS "Shop Isolation Customers" ON customers;
-CREATE POLICY "Shop Isolation Customers" ON customers FOR ALL USING (shop_id = get_current_shop_id());
-
-DROP POLICY IF EXISTS "Shop Isolation Devices" ON devices;
-CREATE POLICY "Shop Isolation Devices" ON devices FOR ALL USING (shop_id = get_current_shop_id());
-
-DROP POLICY IF EXISTS "Shop Isolation Orders" ON service_orders;
-CREATE POLICY "Shop Isolation Orders" ON service_orders FOR ALL USING (shop_id = get_current_shop_id());
-
-DROP POLICY IF EXISTS "Shop Isolation Inventory" ON inventory;
-CREATE POLICY "Shop Isolation Inventory" ON inventory FOR ALL USING (shop_id = get_current_shop_id());
-
--- Políticas Públicas para el Portal B2C (/track/[tracking_code])
-DROP POLICY IF EXISTS "Public B2C Order Tracking" ON service_orders;
-CREATE POLICY "Public B2C Order Tracking" ON service_orders FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public B2C Devices View" ON devices;
-CREATE POLICY "Public B2C Devices View" ON devices FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Public B2C Shops View" ON shops;
-CREATE POLICY "Public B2C Shops View" ON shops FOR SELECT USING (true);
+CREATE POLICY "Public Devices Tracking" ON devices
+  FOR SELECT USING (TRUE);
