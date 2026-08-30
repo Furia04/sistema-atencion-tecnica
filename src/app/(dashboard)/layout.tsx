@@ -39,30 +39,46 @@ export default function DashboardLayout({
   const [loading, setLoading] = useState(true);
   const [copiedAlias, setCopiedAlias] = useState(false);
 
-  useEffect(() => {
-    async function loadUserAndShopStatus() {
-      setLoading(true);
-      try {
-        const profile = await getCurrentUserProfile();
-        if (profile) {
-          setUserProfile(profile);
-        }
-
-        const shops = await fetchAllShopsForAdmin();
-        const currentShop = shops.find(
-          (s) => s.owner_email === profile?.email || s.id === profile?.shop_id
-        ) || shops[0];
-
-        if (currentShop) {
-          setUserShop(currentShop);
-        }
-      } catch (err) {
-        console.warn('Cargado perfil con mock fallback');
-      } finally {
-        setLoading(false);
+  const loadUserAndShopStatus = async () => {
+    setLoading(true);
+    try {
+      const profile = await getCurrentUserProfile();
+      if (profile) {
+        setUserProfile(profile);
       }
+
+      const shops = await fetchAllShopsForAdmin();
+      const currentShop = shops.find(
+        (s) => s.owner_email === profile?.email || s.id === profile?.shop_id
+      ) || shops[0];
+
+      if (currentShop) {
+        setUserShop(currentShop);
+      }
+    } catch (err) {
+      console.warn('Cargado perfil con mock fallback');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadUserAndShopStatus();
+
+    // Listener para actualización en tiempo real cuando el Super Admin cambia estados
+    const handleShopUpdate = () => {
+      loadUserAndShopStatus();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('prorepair_shop_updated', handleShopUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('prorepair_shop_updated', handleShopUpdate);
+      }
+    };
   }, []);
 
   // Determinar Estado de Bloqueo del Taller:

@@ -120,7 +120,16 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
         const localShops: Shop[] = JSON.parse(storedStr);
         localShops.forEach((s) => {
           if (s.owner_email) {
-            shopMap.set(s.owner_email, s);
+            // Priorizar estado almacenado localmente en caso de override
+            const existing = shopMap.get(s.owner_email);
+            shopMap.set(s.owner_email, {
+              ...existing,
+              ...s,
+              id: existing?.id || s.id,
+              name: s.name || existing?.name || 'Taller Registrado',
+              subscription_status: s.subscription_status || existing?.subscription_status || 'pending_payment',
+              active: s.active ?? existing?.active ?? false,
+            });
           }
         });
       }
@@ -137,7 +146,7 @@ export async function updateShopSubscriptionStatus(
   status: 'active' | 'pending_payment' | 'past_due' | 'canceled',
   active: boolean
 ) {
-  // 1. Actualizar en Supabase
+  // 1. Intentar actualizar en Supabase DB
   try {
     await supabase
       .from('shops')
@@ -148,20 +157,36 @@ export async function updateShopSubscriptionStatus(
       })
       .eq('id', shopId);
   } catch (err) {
-    console.warn('Actualización local de taller realizada');
+    console.warn('Actualización Supabase omitida o fallback');
   }
 
-  // 2. Actualizar en localStorage
+  // 2. Persistir siempre en localStorage para reactividad inmediata
   if (typeof window !== 'undefined') {
     try {
       const storedStr = localStorage.getItem('prorepair_registered_shops');
-      if (storedStr) {
-        const localShops: Shop[] = JSON.parse(storedStr);
-        const updated = localShops.map((s) =>
+      let localShops: Shop[] = storedStr ? JSON.parse(storedStr) : [];
+      
+      const exists = localShops.some((s) => s.id === shopId);
+      if (exists) {
+        localShops = localShops.map((s) =>
           s.id === shopId ? { ...s, subscription_status: status, active: active } : s
         );
-        localStorage.setItem('prorepair_registered_shops', JSON.stringify(updated));
+      } else {
+        localShops.push({
+          id: shopId,
+          name: 'Taller Registrado',
+          owner_email: 'usuario@taller.com',
+          subscription_status: status,
+          plan_price: 15000,
+          active: active,
+          created_at: new Date().toISOString(),
+        });
       }
+      
+      localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
+
+      // 3. Emitir evento para actualización instantánea sin recarga
+      window.dispatchEvent(new Event('prorepair_shop_updated'));
     } catch (err) {
       console.warn('Error al actualizar estado en localStorage');
     }
