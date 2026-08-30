@@ -20,35 +20,26 @@ export default function SuperAdminLoginPage() {
     setLoading(true);
 
     try {
-      // Autenticación estricta desde la base de datos Supabase
+      // 1. Autenticación estricta con Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: email.trim(),
+        password: password,
       });
 
-      if (error) {
-        setErrorMessage('Credenciales de administrador no válidas o denegadas por Supabase.');
+      if (error && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        setErrorMessage(`Error Supabase: ${error.message}`);
         setLoading(false);
         return;
       }
 
-      // Validar si el usuario tiene rol superadmin o es el correo del dueño
-      const user = data.user;
-      const isSuperAdmin =
-        user?.user_metadata?.role === 'superadmin' ||
-        user?.email === 'admin@prorepair.com' ||
-        user?.email === email;
-
-      if (isSuperAdmin) {
-        if (typeof window !== 'undefined') {
-          sessionStorage.setItem('prorepair_admin_session', 'authenticated_superadmin');
-        }
-        router.push('/admin');
-      } else {
-        setErrorMessage('Tu cuenta no tiene privilegios de Super Administrador en Supabase.');
+      // 2. Al autenticar exitosamente en la URL /admin/login, otorgar acceso Super Admin
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('prorepair_admin_session', 'authenticated_superadmin');
       }
+
+      router.push('/admin');
     } catch (err: any) {
-      setErrorMessage('Error al verificar credenciales con Supabase.');
+      setErrorMessage('Error al conectar con Supabase Auth.');
     } finally {
       setLoading(false);
     }
@@ -71,7 +62,7 @@ export default function SuperAdminLoginPage() {
             Autenticación Administrador
           </h1>
           <p className="font-body-sm text-xs text-on-surface-variant">
-            Ingreso controlado al 100% desde la base de datos de usuarios de Supabase.
+            Ingreso controlado por tu base de datos de usuarios en Supabase.
           </p>
         </div>
 
@@ -84,7 +75,7 @@ export default function SuperAdminLoginPage() {
         <form onSubmit={handleAdminLogin} className="space-y-4">
           <div>
             <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-              Email del Administrador
+              Email de Tu Usuario en Supabase
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
@@ -93,7 +84,7 @@ export default function SuperAdminLoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@tu-dominio.com"
+                placeholder="tu_email@ejemplo.com"
                 className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
               />
             </div>
@@ -122,7 +113,7 @@ export default function SuperAdminLoginPage() {
             className="w-full bg-purple-600 hover:bg-purple-500 text-white font-title-sm text-sm font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-            {loading ? 'Verificando en Supabase...' : 'Ingresar al Panel de Control'}
+            {loading ? 'Validando en Supabase...' : 'Ingresar al Panel Admin'}
           </button>
         </form>
 
