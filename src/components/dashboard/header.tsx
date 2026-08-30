@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Search, Bell, HelpCircle, Menu } from 'lucide-react';
+import Link from 'next/link';
+import { Search, Bell, HelpCircle, Menu, LogOut, User } from 'lucide-react';
 import { UserProfile } from '@/types';
 
 interface HeaderProps {
@@ -27,13 +28,13 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
           <input
             type="text"
-            placeholder="Buscar órdenes, clientes, IMEI o repuestos..."
+            placeholder="Buscar órdenes, clientes, DNI, IMEI o repuestos..."
             className="w-full bg-surface-container-lowest border border-outline-variant rounded-full pl-9 pr-4 py-1.5 font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all"
           />
         </div>
       </div>
 
-      {/* Acciones */}
+      {/* Acciones del Header */}
       <div className="flex items-center gap-3">
         <button
           className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all p-2 rounded-full relative"
@@ -42,12 +43,25 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error border border-surface" />
         </button>
+
         <button
           className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all p-2 rounded-full"
           title="Ayuda y Soporte"
         >
           <HelpCircle className="w-5 h-5" />
         </button>
+
+        <div className="h-4 w-px bg-outline-variant/60 mx-1" />
+
+        {/* Enlace Salir / Iniciar Sesión */}
+        <Link
+          href="/login"
+          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-error hover:bg-surface-container-high px-3 py-1.5 rounded-lg border border-outline-variant/50 transition-colors font-semibold"
+          title="Cerrar Sesión / Cambiar de Usuario"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden md:inline">Salir</span>
+        </Link>
       </div>
     </header>
   );
