@@ -74,7 +74,7 @@ export default function LandingPage() {
               Ingresar al Taller
             </Link>
             <Link
-              href="/dashboard"
+              href="/demo"
               className="bg-primary-container text-on-primary-container hover:bg-primary font-title-sm text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-primary/40 flex items-center gap-2"
             >
               Probar Demo <ArrowRight className="w-4 h-4" />
@@ -191,7 +191,7 @@ export default function LandingPage() {
                   Comenzar Prueba Gratuita 14 Días <Zap className="w-5 h-5" />
                 </Link>
                 <Link
-                  href="/dashboard"
+                  href="/demo"
                   className="w-full sm:w-auto bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-base font-bold px-8 py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   Ver Panel en Vivo (Demo)
@@ -359,7 +359,6 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Tarjeta de Plan Único Destacada */}
           <div className="bg-surface-container border-2 border-primary rounded-3xl p-8 sm:p-12 space-y-8 shadow-2xl shadow-primary/15 relative overflow-hidden text-left max-w-2xl mx-auto">
             <div className="absolute top-0 right-0 bg-primary text-on-primary font-label-caps text-xs font-bold px-4 py-1.5 rounded-bl-2xl uppercase tracking-wider">
               PLAN COMPLETO
@@ -382,7 +381,6 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Lista de Funcionalidades Incluidas */}
             <div className="space-y-4">
               <p className="font-label-caps text-xs text-primary uppercase font-bold tracking-wider">
                 Todo lo que incluye tu suscripción:
