@@ -26,7 +26,7 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/', label: 'Panel Principal', icon: LayoutDashboard },
+    { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard },
     { href: '/orders', label: 'Órdenes de Servicio', icon: Wrench },
     { href: '/customers', label: 'Clientes', icon: Users },
     { href: '/inventory', label: 'Inventario', icon: Package },
