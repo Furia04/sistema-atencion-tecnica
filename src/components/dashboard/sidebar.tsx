@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UserProfile } from '@/types';
+import { Logo } from '@/components/ui/logo';
 import {
   LayoutDashboard,
   Wrench,
@@ -13,7 +14,6 @@ import {
   ShieldAlert,
   UserCheck,
   X,
-  ChevronLeft,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,29 +37,19 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Fondo Oscuro / Backdrop para Cerrar al Hacer Clic Afuera */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Drawer Desplegable Animado */}
+      {/* Drawer */}
       <aside className="fixed h-full w-sidebar-width left-0 top-0 border-r border-outline-variant bg-surface-container flex flex-col z-50 animate-in slide-in-from-left duration-200 shadow-2xl">
-        {/* Encabezado del Taller y Botón Cierre */}
+        {/* Encabezado con Logo Minimalista */}
         <div className="p-4 border-b border-outline-variant flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
-              <Wrench className="w-4 h-4" />
-            </div>
-            <div>
-              <h1 className="font-headline-md text-title-sm font-bold text-primary tracking-tight">
-                ProRepair Ops
-              </h1>
-              <p className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-                Sucursal Norte
-              </p>
-            </div>
-          </div>
+          <Link href="/dashboard" onClick={onClose}>
+            <Logo size={36} textSubtitle="Sucursal Norte" />
+          </Link>
 
           <button
             onClick={onClose}

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d2bbff" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagonal Tech Shield Background -->
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#primaryGradient)" />
+  
+  <!-- Subtle Inner Tech Ring -->
+  <circle cx="256" cy="256" r="160" stroke="white" stroke-opacity="0.15" stroke-width="8" stroke-dasharray="16 12" />
+
+  <!-- Modern Geometric Wrench & Circuit Node -->
+  <path d="M192 144C164.386 144 142 166.386 142 194C142 216.5 156.88 235.53 177.12 241.87L148 336C144 349 154 362 167 362H200L234.88 248.87C241.67 249.61 248.74 249.03 255.43 246.85C282.01 238.19 296.25 209.39 287.59 182.81C278.93 156.23 250.13 141.99 223.55 150.65C213.12 154.05 204.38 160.91 198.48 169.83L220 191.35L191.35 220L169.83 198.48C175.7 181.35 188.75 168.3 205.88 162.43" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Micro Circuit Node Dot -->
+  <circle cx="340" cy="172" r="28" fill="url(#accentGradient)" />
+  <path d="M287 182L315 174" stroke="url(#accentGradient)" stroke-width="12" stroke-linecap="round" />
+  <circle cx="340" cy="340" r="18" fill="white" fill-opacity="0.9" />
+  <path d="M234 310L324 336" stroke="white" stroke-opacity="0.4" stroke-width="8" stroke-linecap="round" stroke-dasharray="8 8" />
+</svg>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Logo } from '@/components/ui/logo';
 import {
   Wrench,
   Smartphone,
@@ -30,19 +31,9 @@ export default function LandingPage() {
       {/* 1. HEADER / NAVBAR */}
       <header className="sticky top-0 bg-surface/90 backdrop-blur-md border-b border-outline-variant/60 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container shadow-md">
-              <Wrench className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <span className="font-headline-md text-xl font-bold text-primary tracking-tight">
-                ProRepair Ops
-              </span>
-              <span className="block font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest">
-                SaaS Técnico Multirubro
-              </span>
-            </div>
-          </div>
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Logo size={40} textSubtitle="SaaS Técnico Multirubro" />
+          </Link>
 
           <nav className="hidden md:flex items-center gap-8 font-title-sm text-sm text-on-surface-variant">
             <a href="#caracteristicas" className="hover:text-primary transition-colors">
@@ -61,7 +52,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             <Link
-              href="/dashboard"
+              href="/login"
               className="text-on-surface hover:text-primary font-title-sm text-sm font-semibold transition-colors hidden sm:block"
             >
               Ingresar al Taller
@@ -93,13 +84,13 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Link
-              href="/dashboard"
+              href="/register"
               className="w-full sm:w-auto bg-primary text-on-primary font-title-sm text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-container transition-all shadow-[0_0_20px_rgba(124,58,237,0.4)] flex items-center justify-center gap-3"
             >
               Comenzar Prueba Gratuita 14 Días <Zap className="w-5 h-5" />
             </Link>
             <Link
-              href="/orders"
+              href="/dashboard"
               className="w-full sm:w-auto bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-base font-bold px-8 py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               Ver Panel en Vivo (Demo)
@@ -114,7 +105,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 3. SHOWCASE MULTIRUBRO (JSONB DYNAMIC FIELDS) */}
+      {/* 3. SHOWCASE MULTIRUBRO */}
       <section id="multirubro" className="py-20 px-6 bg-surface-container-lowest border-y border-outline-variant/60">
         <div className="max-w-7xl mx-auto space-y-12">
           <div className="text-center max-w-3xl mx-auto space-y-3">
@@ -250,7 +241,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. PLANES Y PRECIOS (MercadoPago Ready) */}
+      {/* 5. PLANES Y PRECIOS */}
       <section id="planes" className="py-24 px-6 bg-surface-container-lowest border-t border-outline-variant/60">
         <div className="max-w-7xl mx-auto space-y-16">
           <div className="text-center max-w-3xl mx-auto space-y-3">
@@ -263,7 +254,6 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Plan Inicial */}
             <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-8 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <h3 className="font-title-sm text-xl font-bold text-on-surface">Plan Técnico</h3>
@@ -279,14 +269,13 @@ export default function LandingPage() {
                 </ul>
               </div>
               <Link
-                href="/dashboard"
+                href="/register"
                 className="w-full bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-sm font-bold py-3 rounded-xl transition-colors text-center block"
               >
                 Comenzar Plan Técnico
               </Link>
             </div>
 
-            {/* Plan Pro Taller (Destacado) */}
             <div className="bg-surface-container border-2 border-primary rounded-2xl p-8 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-primary/10">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider">
                 MÁS POPULAR
@@ -306,14 +295,13 @@ export default function LandingPage() {
                 </ul>
               </div>
               <Link
-                href="/dashboard"
+                href="/register"
                 className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3 rounded-xl transition-all text-center block shadow-lg"
               >
                 Probar Gratis 14 Días
               </Link>
             </div>
 
-            {/* Plan Empresa */}
             <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-8 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 <h3 className="font-title-sm text-xl font-bold text-on-surface">Multi-Sucursal</h3>
@@ -329,7 +317,7 @@ export default function LandingPage() {
                 </ul>
               </div>
               <Link
-                href="/dashboard"
+                href="/register"
                 className="w-full bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-sm font-bold py-3 rounded-xl transition-colors text-center block"
               >
                 Contactar Ventas
@@ -400,12 +388,7 @@ export default function LandingPage() {
       {/* 7. FOOTER */}
       <footer className="bg-surface-container-high border-t border-outline-variant py-12 px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-on-surface-variant">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
-              <Wrench className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <span className="font-bold text-on-surface text-sm">ProRepair Ops</span>
-          </div>
+          <Logo size={32} />
 
           <p>© 2026 ProRepair Ops Inc. Todos los derechos reservados.</p>
 
