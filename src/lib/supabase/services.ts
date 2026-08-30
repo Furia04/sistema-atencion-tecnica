@@ -64,7 +64,7 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     },
   ];
 
-  defaultShops.forEach((s) => shopMap.set(s.owner_email, s));
+  defaultShops.forEach((s) => shopMap.set(s.id, s));
 
   // 2. Intentar consultar la base de datos Supabase
   try {
@@ -75,7 +75,7 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
 
     if (dbShops && dbShops.length > 0) {
       dbShops.forEach((s: any) => {
-        shopMap.set(s.owner_email || s.id, {
+        shopMap.set(s.id, {
           id: s.id,
           name: s.name || 'Taller Registrado',
           owner_email: s.owner_email || s.email || 'usuario@taller.com',
@@ -95,9 +95,11 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
   try {
     const profile = await getCurrentUserProfile();
     if (profile && profile.email) {
-      if (!shopMap.has(profile.email)) {
-        shopMap.set(profile.email, {
-          id: profile.shop_id || profile.id,
+      const existingShop = Array.from(shopMap.values()).find(s => s.owner_email === profile.email);
+      if (!existingShop) {
+        const userShopId = profile.shop_id || profile.id;
+        shopMap.set(userShopId, {
+          id: userShopId,
           name: (profile as any).shop_name || `Taller de ${profile.full_name || profile.email}`,
           owner_email: profile.email,
           subscription_status: 'pending_payment',
@@ -112,29 +114,44 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     // Ignorar si no está autenticado
   }
 
-  // 4. Consultar talleres registrados en localStorage
+  // 4. Cargar registrados en localStorage
   if (typeof window !== 'undefined') {
     try {
       const storedStr = localStorage.getItem('prorepair_registered_shops');
       if (storedStr) {
         const localShops: Shop[] = JSON.parse(storedStr);
         localShops.forEach((s) => {
-          if (s.owner_email) {
-            // Priorizar estado almacenado localmente en caso de override
-            const existing = shopMap.get(s.owner_email);
-            shopMap.set(s.owner_email, {
-              ...existing,
+          if (s.id) {
+            shopMap.set(s.id, {
+              ...(shopMap.get(s.id) || s),
               ...s,
-              id: existing?.id || s.id,
-              name: s.name || existing?.name || 'Taller Registrado',
-              subscription_status: s.subscription_status || existing?.subscription_status || 'pending_payment',
-              active: s.active ?? existing?.active ?? false,
             });
           }
         });
       }
     } catch (err) {
       console.warn('Error localStorage shops');
+    }
+
+    // 5. APLICAR SOBREESCRITURAS DE ESTADO (OVERRIDES PERMANENTES EN LOCALSTORAGE)
+    try {
+      const overridesStr = localStorage.getItem('prorepair_shop_overrides');
+      if (overridesStr) {
+        const overrides: Record<string, { subscription_status: any; active: boolean }> = JSON.parse(overridesStr);
+        Object.entries(overrides).forEach(([shopId, statusData]) => {
+          shopMap.forEach((shop, key) => {
+            if (shop.id === shopId || shop.owner_email === shopId) {
+              shopMap.set(key, {
+                ...shop,
+                subscription_status: statusData.subscription_status,
+                active: statusData.active,
+              });
+            }
+          });
+        });
+      }
+    } catch (err) {
+      console.warn('Error al aplicar overrides de administracion');
     }
   }
 
@@ -160,35 +177,34 @@ export async function updateShopSubscriptionStatus(
     console.warn('Actualización Supabase omitida o fallback');
   }
 
-  // 2. Persistir siempre en localStorage para reactividad inmediata
+  // 2. Guardar sobreescritura PERMANENTE en localStorage
   if (typeof window !== 'undefined') {
     try {
-      const storedStr = localStorage.getItem('prorepair_registered_shops');
-      let localShops: Shop[] = storedStr ? JSON.parse(storedStr) : [];
-      
-      const exists = localShops.some((s) => s.id === shopId);
-      if (exists) {
-        localShops = localShops.map((s) =>
-          s.id === shopId ? { ...s, subscription_status: status, active: active } : s
-        );
-      } else {
-        localShops.push({
-          id: shopId,
-          name: 'Taller Registrado',
-          owner_email: 'usuario@taller.com',
-          subscription_status: status,
-          plan_price: 15000,
-          active: active,
-          created_at: new Date().toISOString(),
-        });
-      }
-      
-      localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
+      // Guardar en diccionario de overrides
+      const overridesStr = localStorage.getItem('prorepair_shop_overrides');
+      const overrides: Record<string, { subscription_status: any; active: boolean }> = overridesStr
+        ? JSON.parse(overridesStr)
+        : {};
 
-      // 3. Emitir evento para actualización instantánea sin recarga
+      overrides[shopId] = { subscription_status: status, active: active };
+      localStorage.setItem('prorepair_shop_overrides', JSON.stringify(overrides));
+
+      // Actualizar también en lista de talleres registrados
+      const storedStr = localStorage.getItem('prorepair_registered_shops');
+      if (storedStr) {
+        let localShops: Shop[] = JSON.parse(storedStr);
+        localShops = localShops.map((s) =>
+          s.id === shopId || s.owner_email === shopId
+            ? { ...s, subscription_status: status, active: active }
+            : s
+        );
+        localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
+      }
+
+      // 3. Emitir evento para reactividad instantánea
       window.dispatchEvent(new Event('prorepair_shop_updated'));
     } catch (err) {
-      console.warn('Error al actualizar estado en localStorage');
+      console.warn('Error al guardar override en localStorage');
     }
   }
 
