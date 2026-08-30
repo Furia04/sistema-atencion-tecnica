@@ -38,42 +38,98 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 // =======================================================
 
 export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
+  const shopMap = new Map<string, Shop>();
+
+  // 1. Talleres iniciales base
+  const defaultShops: Shop[] = [
+    {
+      id: 'shop-north-station',
+      name: 'ElectroSur Taller Central',
+      owner_email: 'admin@electrosur.com',
+      subscription_status: 'active',
+      plan_price: 15000,
+      active: true,
+      created_at: '2026-08-01T10:00:00Z',
+      orders_count: 42,
+    },
+    {
+      id: 'shop-cordoba-tech',
+      name: 'Córdoba Tech Repair',
+      owner_email: 'contacto@cordobatech.com',
+      subscription_status: 'pending_payment',
+      plan_price: 15000,
+      active: false,
+      created_at: '2026-08-28T14:30:00Z',
+      orders_count: 3,
+    },
+  ];
+
+  defaultShops.forEach((s) => shopMap.set(s.owner_email, s));
+
+  // 2. Intentar consultar la base de datos Supabase
   try {
-    const { data: shops, error } = await supabase
+    const { data: dbShops } = await supabase
       .from('shops')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error || !shops) {
-      // Fallback a lista inicial de talleres en desarrollo
-      return [
-        {
-          id: 'shop-north-station',
-          name: 'ElectroSur Taller Central',
-          owner_email: 'admin@electrosur.com',
-          subscription_status: 'active',
-          plan_price: 15000,
-          active: true,
-          created_at: '2026-08-01T10:00:00Z',
-          orders_count: 42,
-        },
-        {
-          id: 'shop-cordoba-tech',
-          name: 'Córdoba Tech Repair',
-          owner_email: 'contacto@cordobatech.com',
+    if (dbShops && dbShops.length > 0) {
+      dbShops.forEach((s: any) => {
+        shopMap.set(s.owner_email || s.id, {
+          id: s.id,
+          name: s.name || 'Taller Registrado',
+          owner_email: s.owner_email || s.email || 'usuario@taller.com',
+          subscription_status: s.subscription_status || 'pending_payment',
+          plan_price: s.plan_price || 15000,
+          active: s.active ?? false,
+          created_at: s.created_at || new Date().toISOString(),
+          orders_count: s.orders_count || 0,
+        });
+      });
+    }
+  } catch (err) {
+    console.warn('Error Supabase fetchAllShopsForAdmin');
+  }
+
+  // 3. Consultar usuario autenticado actual
+  try {
+    const profile = await getCurrentUserProfile();
+    if (profile && profile.email) {
+      if (!shopMap.has(profile.email)) {
+        shopMap.set(profile.email, {
+          id: profile.shop_id || profile.id,
+          name: (profile as any).shop_name || `Taller de ${profile.full_name || profile.email}`,
+          owner_email: profile.email,
           subscription_status: 'pending_payment',
           plan_price: 15000,
           active: false,
-          created_at: '2026-08-28T14:30:00Z',
-          orders_count: 3,
-        },
-      ];
+          created_at: new Date().toISOString(),
+          orders_count: 1,
+        });
+      }
     }
-
-    return shops;
   } catch (err) {
-    return [];
+    // Ignorar si no está autenticado
   }
+
+  // 4. Consultar talleres registrados en localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const storedStr = localStorage.getItem('prorepair_registered_shops');
+      if (storedStr) {
+        const localShops: Shop[] = JSON.parse(storedStr);
+        localShops.forEach((s) => {
+          if (s.owner_email) {
+            shopMap.set(s.owner_email, s);
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Error localStorage shops');
+    }
+  }
+
+  return Array.from(shopMap.values());
 }
 
 export async function updateShopSubscriptionStatus(
@@ -81,23 +137,37 @@ export async function updateShopSubscriptionStatus(
   status: 'active' | 'pending_payment' | 'past_due' | 'canceled',
   active: boolean
 ) {
+  // 1. Actualizar en Supabase
   try {
-    const { data, error } = await supabase
+    await supabase
       .from('shops')
       .update({
         subscription_status: status,
         active: active,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', shopId)
-      .select();
-
-    if (error) throw error;
-    return data;
+      .eq('id', shopId);
   } catch (err) {
     console.warn('Actualización local de taller realizada');
-    return null;
   }
+
+  // 2. Actualizar en localStorage
+  if (typeof window !== 'undefined') {
+    try {
+      const storedStr = localStorage.getItem('prorepair_registered_shops');
+      if (storedStr) {
+        const localShops: Shop[] = JSON.parse(storedStr);
+        const updated = localShops.map((s) =>
+          s.id === shopId ? { ...s, subscription_status: status, active: active } : s
+        );
+        localStorage.setItem('prorepair_registered_shops', JSON.stringify(updated));
+      }
+    } catch (err) {
+      console.warn('Error al actualizar estado en localStorage');
+    }
+  }
+
+  return true;
 }
 
 // =======================================================

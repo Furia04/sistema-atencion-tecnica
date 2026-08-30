@@ -3,23 +3,22 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Wrench, Mail, Lock, Eye, EyeOff, Building, Phone, User, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Wrench, Mail, Lock, User, Building2, Phone, ArrowRight, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { Shop } from '@/types';
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  // Paso 1: Datos del Taller (Tenant)
+  // Paso 1: Datos del Taller / Negocio
   const [shopName, setShopName] = useState('');
-  const [category, setCategory] = useState('Multirubro');
-  const [shopPhone, setShopPhone] = useState('');
+  const [phone, setPhone] = useState('');
 
-  // Paso 2: Datos del Dueño (Owner Account)
+  // Paso 2: Cuenta del Dueño / Administrador
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -43,8 +42,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      // Registrar usuario en Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
+      // 1. Registrar usuario en Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -56,18 +55,51 @@ export default function RegisterPage() {
         },
       });
 
-      if (error && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        setErrorMessage(error.message);
+      if (authError && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        setErrorMessage(authError.message);
         setLoading(false);
         return;
       }
 
-      setSuccessMessage('¡Taller registrado exitosamente! Redirigiendo al panel...');
+      // 2. Insertar Taller en la tabla 'shops' de Supabase
+      const newShopId = authData?.user?.id || `shop-${Date.now()}`;
+      const newShopObj: Shop = {
+        id: newShopId,
+        name: shopName,
+        owner_email: email,
+        subscription_status: 'pending_payment',
+        plan_price: 15000,
+        active: false,
+        created_at: new Date().toISOString(),
+        orders_count: 0,
+      };
+
+      try {
+        await supabase.from('shops').insert([{
+          id: newShopId,
+          name: shopName,
+          owner_email: email,
+          subscription_status: 'pending_payment',
+          plan_price: 15000,
+          active: false,
+        }]);
+      } catch (err) {
+        console.warn('Error al insertar taller en Supabase');
+      }
+
+      // 3. Guardar en localStorage para disponibilidad inmediata en el Panel de Admin
+      if (typeof window !== 'undefined') {
+        const storedShopsStr = localStorage.getItem('prorepair_registered_shops');
+        const existingShops: Shop[] = storedShopsStr ? JSON.parse(storedShopsStr) : [];
+        const filteredShops = existingShops.filter((s) => s.owner_email !== email);
+        localStorage.setItem('prorepair_registered_shops', JSON.stringify([newShopObj, ...filteredShops]));
+      }
+
+      setSuccessMessage('¡Taller registrado exitosamente! Redirigiendo al checkout...');
       setTimeout(() => {
         router.push('/checkout');
       }, 1500);
     } catch (err: any) {
-      // En modo demo local, redirigir
       setSuccessMessage('¡Taller registrado en modo demo! Redirigiendo...');
       setTimeout(() => {
         router.push('/checkout');
@@ -99,19 +131,18 @@ export default function RegisterPage() {
               </span>
             </div>
           </Link>
-
-          <h2 className="font-title-sm text-xl font-bold text-on-surface pt-2">
-            Registra tu Taller de Servicio Técnico
-          </h2>
+          <h1 className="font-title-sm text-xl font-bold text-on-surface pt-2">
+            Alta de Taller & Registro de Cuenta
+          </h1>
           <p className="font-body-sm text-xs text-on-surface-variant">
-            Crea tu cuenta de administrador y comienza a gestionar tus reparaciones en minutos.
+            Configura tu negocio en 2 minutos y comienza a emitir órdenes ilimitadas.
           </p>
         </div>
 
-        {/* Mensajes de Alerta */}
+        {/* Notificaciones */}
         {errorMessage && (
-          <div className="bg-error/10 border border-error/30 text-error p-3 rounded-lg text-xs font-semibold text-center">
-            {errorMessage}
+          <div className="bg-error/10 border border-error/30 text-error p-3 rounded-lg text-xs font-semibold text-center flex items-center justify-center gap-2">
+            <AlertCircle className="w-4 h-4" /> {errorMessage}
           </div>
         )}
 
@@ -121,141 +152,106 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Formulario de Alta de Taller y Usuario */}
         <form onSubmit={handleRegister} className="space-y-6">
-          {/* Bloque 1: Información del Taller */}
-          <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-4">
-            <h3 className="font-label-caps text-xs text-primary uppercase font-bold flex items-center gap-2">
-              <Building className="w-4 h-4" /> 1. Datos del Taller / Empresa
-            </h3>
+          {/* SECCIÓN 1: DATOS DEL TALLER */}
+          <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
+            <div className="flex items-center gap-2 text-primary font-title-sm text-xs font-bold uppercase tracking-wider">
+              <Building2 className="w-4 h-4" /> 1. Datos de tu Taller / Negocio
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
                 <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
                   Nombre del Taller *
                 </label>
-                <div className="relative">
-                  <Building className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                  <input
-                    type="text"
-                    required
-                    value={shopName}
-                    onChange={(e) => setShopName(e.target.value)}
-                    placeholder="Ej: Electrónica Sur o Laboratorio Fix"
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  placeholder="Ej: Electrónica Sur Taller"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                />
               </div>
 
               <div>
                 <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                  Rubro Principal
+                  Teléfono / WhatsApp *
                 </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 px-3 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                >
-                  <option value="Multirubro">Multirubro (Todos)</option>
-                  <option value="Celulares">Celulares & Tablets</option>
-                  <option value="Computadoras">PC & Laptops</option>
-                  <option value="Electronica">Electrónica General</option>
-                  <option value="Automotores">Automotores / ECUs</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
-                  Teléfono WhatsApp
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                  <input
-                    type="tel"
-                    value={shopPhone}
-                    onChange={(e) => setShopPhone(e.target.value)}
-                    placeholder="+54 9 11 1234 5678"
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-mono-data text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                  />
-                </div>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Ej: +54 9 11 4455 6677"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-mono-data text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                />
               </div>
             </div>
           </div>
 
-          {/* Bloque 2: Cuenta del Administrador (Dueño) */}
-          <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-4">
-            <h3 className="font-label-caps text-xs text-emerald-400 uppercase font-bold flex items-center gap-2">
+          {/* SECCIÓN 2: CUENTA DEL DUEÑO */}
+          <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
+            <div className="flex items-center gap-2 text-primary font-title-sm text-xs font-bold uppercase tracking-wider">
               <User className="w-4 h-4" /> 2. Cuenta de Administrador (Dueño)
-            </h3>
+            </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
                   Nombre Completo *
                 </label>
-                <div className="relative">
-                  <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                  <input
-                    type="text"
-                    required
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Carlos Gómez"
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Ej: Carlos Dueño"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                />
               </div>
 
               <div>
                 <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
                   Correo Electrónico *
                 </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="carlos@taller.com"
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                  />
-                </div>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ejemplo@taller.com"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
                     Contraseña *
                   </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-mono-data text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                    />
-                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Mínimo 6 caracteres"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                  />
                 </div>
 
                 <div>
                   <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
                     Confirmar Contraseña *
                   </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2.5 pl-10 pr-4 font-mono-data text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50"
-                    />
-                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repita su contraseña"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 text-xs"
+                  />
                 </div>
               </div>
             </div>
@@ -264,17 +260,17 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] flex items-center justify-center gap-2"
+            className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {loading ? 'Creando Cuenta...' : 'Crear Cuenta de Taller (Prueba 14 Días Gratis)'}{' '}
+            {loading ? 'Creando Taller...' : 'Crear Taller & Ir al Checkout'}{' '}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Footer Link */}
-        <div className="text-center pt-2">
+        {/* Footer */}
+        <div className="text-center border-t border-outline-variant/40 pt-4">
           <p className="font-body-sm text-xs text-on-surface-variant">
-            ¿Ya tienes una cuenta?{' '}
+            ¿Ya tienes un taller registrado?{' '}
             <Link href="/login" className="text-primary font-bold hover:underline">
               Iniciar Sesión
             </Link>
