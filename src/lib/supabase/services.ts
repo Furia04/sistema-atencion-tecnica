@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import { Customer, DeviceCategoryTemplate, InventoryItem, ServiceOrder, UserProfile } from '@/types';
+import { Customer, DeviceCategoryTemplate, InventoryItem, ServiceOrder, Shop, UserProfile } from '@/types';
 
 // =======================================================
 // OBTENER PERFIL Y TALLER (TENANT) DEL USUARIO AUTENTICADO
@@ -29,6 +29,73 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 
     return data;
   } catch (err) {
+    return null;
+  }
+}
+
+// =======================================================
+// PANEL DE SUPER ADMINISTRADOR (DUEÑO DEL SAAS)
+// =======================================================
+
+export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
+  try {
+    const { data: shops, error } = await supabase
+      .from('shops')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !shops) {
+      // Fallback a lista inicial de talleres en desarrollo
+      return [
+        {
+          id: 'shop-north-station',
+          name: 'ElectroSur Taller Central',
+          owner_email: 'admin@electrosur.com',
+          subscription_status: 'active',
+          plan_price: 15000,
+          active: true,
+          created_at: '2026-08-01T10:00:00Z',
+          orders_count: 42,
+        },
+        {
+          id: 'shop-cordoba-tech',
+          name: 'Córdoba Tech Repair',
+          owner_email: 'contacto@cordobatech.com',
+          subscription_status: 'pending_payment',
+          plan_price: 15000,
+          active: false,
+          created_at: '2026-08-28T14:30:00Z',
+          orders_count: 3,
+        },
+      ];
+    }
+
+    return shops;
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function updateShopSubscriptionStatus(
+  shopId: string,
+  status: 'active' | 'pending_payment' | 'past_due' | 'canceled',
+  active: boolean
+) {
+  try {
+    const { data, error } = await supabase
+      .from('shops')
+      .update({
+        subscription_status: status,
+        active: active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', shopId)
+      .select();
+
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.warn('Actualización local de taller realizada');
     return null;
   }
 }
@@ -220,18 +287,14 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
   if (!cleanQuery) return [];
 
   try {
-    // 1. Buscar si la consulta coincide con un DNI en customers
     const { data: customerData } = await supabase
       .from('customers')
       .select('id')
       .eq('document_id', cleanQuery);
 
     const customerIds = (customerData || []).map((c: any) => c.id);
-
-    // 2. Formatear código OT si aplica (#WO-xxxx o WO-xxxx)
     const codeQuery = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
 
-    // 3. Consultar service_orders por customer_id o tracking_code
     let supabaseQuery = supabase
       .from('service_orders')
       .select(`

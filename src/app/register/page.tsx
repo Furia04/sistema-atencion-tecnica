@@ -64,13 +64,13 @@ export default function RegisterPage() {
 
       setSuccessMessage('¡Taller registrado exitosamente! Redirigiendo al panel...');
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/checkout');
       }, 1500);
     } catch (err: any) {
       // En modo demo local, redirigir
       setSuccessMessage('¡Taller registrado en modo demo! Redirigiendo...');
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/checkout');
       }, 1200);
     } finally {
       setLoading(false);
