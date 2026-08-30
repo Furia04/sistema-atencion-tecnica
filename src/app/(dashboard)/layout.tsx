@@ -47,10 +47,11 @@ export default function DashboardLayout({
       }
 
       const shops = await fetchAllShopsForAdmin();
-      const profileEmail = profile?.email?.toLowerCase();
-      
+      const profileEmail = (profile?.email || 'admin@prorepair.com').toLowerCase();
+
+      // Buscar el taller correspondiente por email o ID de taller
       const currentShop = shops.find(
-        (s) => (profileEmail && s.owner_email.toLowerCase() === profileEmail) || s.id === profile?.shop_id
+        (s) => (s.owner_email && s.owner_email.toLowerCase() === profileEmail) || s.id === profile?.shop_id
       ) || shops[0];
 
       if (currentShop) {
@@ -81,22 +82,14 @@ export default function DashboardLayout({
     };
   }, []);
 
-  // Super Admin o Dueño del SaaS SIEMPRE tienen acceso desbloqueado
-  const isSuperAdminUser =
-    userProfile.role === 'superadmin' ||
-    userProfile.email === 'furiaortiz04@gmail.com' ||
-    userProfile.email === 'admin@prorepair.com';
-
-  // Determinar Estado de Bloqueo del Taller:
-  const isSuspended = isSuperAdminUser
-    ? false
-    : userShop
+  // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER PARA TODOS LOS USUARIOS:
+  // 1. Taller Suspendido / Dado de baja por el Administrador (active === false o subscription_status === 'canceled'/'past_due')
+  const isSuspended = userShop
     ? (!userShop.active || userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due')
     : false;
 
-  const isPendingPayment = isSuperAdminUser
-    ? false
-    : userShop
+  // 2. Nuevo Usuario Registrado que Nunca Pagó (subscription_status === 'pending_payment' y no activo)
+  const isPendingPayment = userShop
     ? (userShop.subscription_status === 'pending_payment' && !userShop.active)
     : false;
 
@@ -123,7 +116,7 @@ export default function DashboardLayout({
               <p className="font-body-sm text-xs">Verificando estado de membresía del taller...</p>
             </div>
           ) : isSuspended ? (
-            /* CASO 1: PANTALLA DE TALLER SUSPENDIDO */
+            /* CASO 1: PANTALLA DE TALLER SUSPENDIDO / DADO DE BAJA */
             <div className="max-w-2xl mx-auto my-8 bg-surface-container border-2 border-error/40 rounded-3xl p-8 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-2xl bg-error/20 text-error flex items-center justify-center mx-auto border border-error/30 shadow-inner">
                 <Lock className="w-8 h-8" />
@@ -137,7 +130,7 @@ export default function DashboardLayout({
                   Tu Taller Se Encuentra Suspendido
                 </h2>
                 <p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-                  El acceso a las órdenes de servicio, inventario y datos ha sido suspendido por falta de pago o membresía vencida ($15.000 ARS/mes).
+                  El acceso a las órdenes de servicio, inventario y datos ha sido suspendido desde el panel de administración por falta de pago o baja de membresía ($15.000 ARS/mes).
                 </p>
               </div>
 
@@ -237,7 +230,7 @@ export default function DashboardLayout({
               </div>
             </div>
           ) : (
-            /* CASO 3: TALLER ACTIVO / SUPERADMIN -> PANEL DESBLOQUEADO */
+            /* CASO 3: TALLER ACTIVO -> PANEL DESBLOQUEADO */
             children
           )}
         </main>
