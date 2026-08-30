@@ -21,6 +21,9 @@ import {
   RefreshCw,
   Loader2,
   LogOut,
+  Plus,
+  X,
+  Save,
 } from 'lucide-react';
 import { Shop } from '@/types';
 import { fetchAllShopsForAdmin, updateShopSubscriptionStatus } from '@/lib/supabase/services';
@@ -33,7 +36,22 @@ export default function SuperAdminDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedShopId, setCopiedShopId] = useState<string | null>(null);
 
-  // Verificar sesión de Super Administrador al cargar
+  // Modal para agregar taller manualmente desde el Admin
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newShopName, setNewShopName] = useState('');
+  const [newOwnerEmail, setNewOwnerEmail] = useState('');
+
+  const loadShops = async () => {
+    setLoading(true);
+    try {
+      const realShops = await fetchAllShopsForAdmin();
+      setShops(realShops || []);
+    } catch (err) {
+      console.error('Error al cargar talleres:', err);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const adminSession = sessionStorage.getItem('prorepair_admin_session');
@@ -44,18 +62,21 @@ export default function SuperAdminDashboardPage() {
       setAuthorized(true);
     }
 
-    async function loadShops() {
-      setLoading(true);
-      try {
-        const realShops = await fetchAllShopsForAdmin();
-        setShops(realShops || []);
-      } catch (err) {
-        console.error('Error al cargar talleres:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadShops();
+
+    const handleShopUpdate = () => {
+      loadShops();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('prorepair_shop_updated', handleShopUpdate);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('prorepair_shop_updated', handleShopUpdate);
+      }
+    };
   }, [router]);
 
   const handleAdminLogout = () => {
@@ -100,6 +121,42 @@ export default function SuperAdminDashboardPage() {
     );
   };
 
+  const handleManualAddShop = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newShopName.trim() || !newOwnerEmail.trim()) return;
+
+    const manualShopId = `shop-${Date.now()}`;
+    const newShopObj: Shop = {
+      id: manualShopId,
+      name: newShopName.trim(),
+      owner_email: newOwnerEmail.trim().toLowerCase(),
+      subscription_status: 'active',
+      plan_price: 15000,
+      active: true,
+      created_at: new Date().toISOString(),
+      orders_count: 0,
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        const storedStr = localStorage.getItem('prorepair_registered_shops');
+        const existingShops: Shop[] = storedStr ? JSON.parse(storedStr) : [];
+        const filtered = existingShops.filter((s) => s.owner_email.toLowerCase() !== newOwnerEmail.trim().toLowerCase());
+        localStorage.setItem('prorepair_registered_shops', JSON.stringify([newShopObj, ...filtered]));
+
+        // Guardar override permanente de activacion
+        await updateShopSubscriptionStatus(manualShopId, 'active', true);
+      } catch (err) {
+        console.warn('Error al agregar taller manualmente');
+      }
+    }
+
+    setShops((prev) => [newShopObj, ...prev]);
+    setNewShopName('');
+    setNewOwnerEmail('');
+    setShowAddModal(false);
+  };
+
   if (!authorized) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-on-surface">
@@ -121,7 +178,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col">
-      {/* HEADER SUPER ADMIN CON PROTECCIÓN Y BOTÓN CERRAR SESIÓN */}
+      {/* HEADER SUPER ADMIN CON BANDERAS DE ACCIÓN */}
       <header className="bg-surface-container border-b border-outline-variant px-6 h-20 flex items-center justify-between sticky top-0 z-20 shadow-md">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -133,12 +190,20 @@ export default function SuperAdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard"
-            className="text-xs font-title-sm text-on-surface-variant hover:text-primary font-bold transition-colors hidden sm:block"
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold px-3.5 py-1.5 rounded-xl shadow transition-all flex items-center gap-1.5"
           >
-            Ir a Panel Taller →
-          </Link>
+            <Plus className="w-4 h-4" /> Alta Manual Taller
+          </button>
+
+          <button
+            onClick={loadShops}
+            className="p-2 bg-surface-bright text-on-surface hover:bg-surface-container-highest rounded-xl border border-outline-variant transition-colors"
+            title="Recargar Lista de Talleres"
+          >
+            <RefreshCw className="w-4 h-4 text-primary" />
+          </button>
 
           <button
             onClick={handleAdminLogout}
@@ -207,7 +272,7 @@ export default function SuperAdminDashboardPage() {
         <div className="bg-surface-container border border-outline-variant rounded-2xl overflow-hidden shadow-xl space-y-4">
           <div className="p-5 border-b border-outline-variant bg-surface-container-high flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 className="font-title-sm text-lg font-bold text-on-surface flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-primary" /> Lista de Talleres Clientes
+              <Building2 className="w-5 h-5 text-primary" /> Lista de Talleres Clientes ({shops.length})
             </h2>
 
             <div className="relative w-full sm:w-72">
@@ -247,7 +312,7 @@ export default function SuperAdminDashboardPage() {
                       <td className="p-4 font-sans font-bold text-on-surface text-sm">
                         {shop.name}
                       </td>
-                      <td className="p-4 text-on-surface-variant">{shop.owner_email}</td>
+                      <td className="p-4 text-on-surface-variant font-semibold">{shop.owner_email}</td>
                       <td className="p-4 text-on-surface-variant">
                         {new Date(shop.created_at).toLocaleDateString('es-AR')}
                       </td>
@@ -327,6 +392,71 @@ export default function SuperAdminDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* MODAL DE ALTA MANUAL DE TALLER DESDE ADMIN */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <form
+            onSubmit={handleManualAddShop}
+            className="bg-surface-container border border-outline-variant rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex justify-between items-center border-b border-outline-variant/60 pb-3">
+              <h3 className="font-title-sm text-base font-bold text-primary flex items-center gap-2">
+                <Plus className="w-5 h-5" /> Alta Manual de Taller
+              </h3>
+              <button type="button" onClick={() => setShowAddModal(false)}>
+                <X className="w-5 h-5 text-on-surface-variant" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-on-surface-variant uppercase mb-1">
+                  Nombre del Taller / Negocio *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newShopName}
+                  onChange={(e) => setNewShopName(e.target.value)}
+                  placeholder="Ej: Electrónica Central"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 text-xs text-on-surface"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-on-surface-variant uppercase mb-1">
+                  Email del Dueño *
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={newOwnerEmail}
+                  onChange={(e) => setNewOwnerEmail(e.target.value)}
+                  placeholder="dueno@taller.com"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-2.5 text-xs text-on-surface font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="px-4 py-2 text-xs font-title-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="bg-primary text-on-primary font-title-sm text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 shadow"
+              >
+                <Save className="w-4 h-4" /> Dar de Alta & Activar Taller
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

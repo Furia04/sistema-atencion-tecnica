@@ -42,14 +42,17 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanShopName = shopName.trim();
+
       // 1. Registrar usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
             full_name: fullName,
-            shop_name: shopName,
+            shop_name: cleanShopName,
             role: 'owner',
           },
         },
@@ -61,12 +64,13 @@ export default function RegisterPage() {
         return;
       }
 
+      const generatedShopId = authData?.user?.id || `shop-${Date.now()}`;
+
       // 2. Insertar Taller en la tabla 'shops' de Supabase
-      const newShopId = authData?.user?.id || `shop-${Date.now()}`;
       const newShopObj: Shop = {
-        id: newShopId,
-        name: shopName,
-        owner_email: email,
+        id: generatedShopId,
+        name: cleanShopName,
+        owner_email: cleanEmail,
         subscription_status: 'pending_payment',
         plan_price: 15000,
         active: false,
@@ -76,9 +80,9 @@ export default function RegisterPage() {
 
       try {
         await supabase.from('shops').insert([{
-          id: newShopId,
-          name: shopName,
-          owner_email: email,
+          id: generatedShopId,
+          name: cleanShopName,
+          owner_email: cleanEmail,
           subscription_status: 'pending_payment',
           plan_price: 15000,
           active: false,
@@ -87,23 +91,31 @@ export default function RegisterPage() {
         console.warn('Error al insertar taller en Supabase');
       }
 
-      // 3. Guardar en localStorage para disponibilidad inmediata en el Panel de Admin
+      // 3. Persistir el nuevo taller en localStorage
       if (typeof window !== 'undefined') {
-        const storedShopsStr = localStorage.getItem('prorepair_registered_shops');
-        const existingShops: Shop[] = storedShopsStr ? JSON.parse(storedShopsStr) : [];
-        const filteredShops = existingShops.filter((s) => s.owner_email !== email);
-        localStorage.setItem('prorepair_registered_shops', JSON.stringify([newShopObj, ...filteredShops]));
+        try {
+          const storedShopsStr = localStorage.getItem('prorepair_registered_shops');
+          const existingShops: Shop[] = storedShopsStr ? JSON.parse(storedShopsStr) : [];
+          const filtered = existingShops.filter((s) => s.owner_email.toLowerCase() !== cleanEmail);
+          const updatedShops = [newShopObj, ...filtered];
+          localStorage.setItem('prorepair_registered_shops', JSON.stringify(updatedShops));
+
+          // Transmitir evento para que el panel admin lo detecte de inmediato
+          window.dispatchEvent(new Event('prorepair_shop_updated'));
+        } catch (e) {
+          console.warn('Error al guardar taller en localStorage');
+        }
       }
 
       setSuccessMessage('¡Taller registrado exitosamente! Redirigiendo al checkout...');
       setTimeout(() => {
         router.push('/checkout');
-      }, 1500);
+      }, 1200);
     } catch (err: any) {
-      setSuccessMessage('¡Taller registrado en modo demo! Redirigiendo...');
+      setSuccessMessage('¡Taller registrado! Redirigiendo...');
       setTimeout(() => {
         router.push('/checkout');
-      }, 1200);
+      }, 1000);
     } finally {
       setLoading(false);
     }
