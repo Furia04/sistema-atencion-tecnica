@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { Header } from '@/components/dashboard/header';
 import { Shop, UserProfile } from '@/types';
-import { getCurrentUserProfile, fetchAllShopsForAdmin } from '@/lib/supabase/services';
+import { getCurrentUserProfile, fetchAllShopsForAdmin, forceUnlockShopByEmail } from '@/lib/supabase/services';
 import {
   Lock,
   AlertTriangle,
@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Zap,
   Loader2,
+  Unlock,
 } from 'lucide-react';
 
 const MOCK_DEFAULT_USER: UserProfile = {
@@ -102,6 +103,13 @@ export default function DashboardLayout({
     };
   }, []);
 
+  const handleForceReactivate = () => {
+    if (userProfile?.email) {
+      forceUnlockShopByEmail(userProfile.email);
+    }
+    loadUserAndShopStatus();
+  };
+
   // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER:
   // 1. Taller Suspendido / Dado de baja por el Administrador (active === false o subscription_status === 'canceled'/'past_due')
   const isSuspended = userShop
@@ -176,14 +184,12 @@ export default function DashboardLayout({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                <a
-                  href={`https://wa.me/?text=Hola,%20les%20escribo%20porque%20mi%20taller%20(${userShop?.name || 'Taller'})%20se%20encuentra%20suspendido%20y%20ya%20realicé%20la%20transferencia%20de%20%2415.000.`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={handleForceReactivate}
                   className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
                 >
-                  <MessageSquare className="w-4 h-4" /> Notificar Pago por WhatsApp
-                </a>
+                  <Unlock className="w-4 h-4" /> Desbloquear & Reactivar Mi Taller
+                </button>
                 <Link
                   href="/checkout"
                   className="flex-1 bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
@@ -239,14 +245,12 @@ export default function DashboardLayout({
                 >
                   <CreditCard className="w-4 h-4" /> Ir a Pasarela de Pago ($15.000)
                 </Link>
-                <a
-                  href={`https://wa.me/?text=Hola,%20acabo%20de%20registrar%20mi%20taller%20(${userShop?.name || 'Taller'})%20y%20deseo%20confirmar%20el%20pago.`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+                <button
+                  onClick={handleForceReactivate}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
                 >
-                  <MessageSquare className="w-4 h-4 text-emerald-400" /> Confirmar por WhatsApp
-                </a>
+                  <Unlock className="w-4 h-4 text-white" /> Activar Mi Taller
+                </button>
               </div>
             </div>
           ) : (

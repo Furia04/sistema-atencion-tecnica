@@ -231,7 +231,7 @@ export async function updateShopSubscriptionStatus(
       // Guardar por ID
       overrides[shopId] = { subscription_status: status, active: active };
 
-      // Buscar si este shopId corresponde a un email registrado y guardar sobreescritura por email también
+      // Buscar si este shopId corresponde a un email y actualizar todas sus variantes
       const storedStr = localStorage.getItem('prorepair_registered_shops');
       if (storedStr) {
         let localShops: Shop[] = JSON.parse(storedStr);
@@ -249,6 +249,11 @@ export async function updateShopSubscriptionStatus(
         localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
       }
 
+      // Si shopId es un correo o contiene furiaortiz04@gmail.com, forzar todas sus claves
+      if (shopId.includes('@')) {
+        overrides[shopId.toLowerCase()] = { subscription_status: status, active: active };
+      }
+
       localStorage.setItem('prorepair_shop_overrides', JSON.stringify(overrides));
 
       // 3. Emitir evento para reactividad instantánea
@@ -259,6 +264,34 @@ export async function updateShopSubscriptionStatus(
   }
 
   return true;
+}
+
+// Limpiar bloqueos obsoletos o forzar activación directa
+export function forceUnlockShopByEmail(email: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const emailLower = email.toLowerCase();
+    const overridesStr = localStorage.getItem('prorepair_shop_overrides');
+    const overrides = overridesStr ? JSON.parse(overridesStr) : {};
+    
+    overrides[emailLower] = { subscription_status: 'active', active: true };
+    localStorage.setItem('prorepair_shop_overrides', JSON.stringify(overrides));
+
+    const storedStr = localStorage.getItem('prorepair_registered_shops');
+    if (storedStr) {
+      let localShops: Shop[] = JSON.parse(storedStr);
+      localShops = localShops.map((s) =>
+        s.owner_email.toLowerCase() === emailLower
+          ? { ...s, subscription_status: 'active', active: true }
+          : s
+      );
+      localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
+    }
+
+    window.dispatchEvent(new Event('prorepair_shop_updated'));
+  } catch (err) {
+    console.warn('Error al forzar desbloqueo');
+  }
 }
 
 // =======================================================
