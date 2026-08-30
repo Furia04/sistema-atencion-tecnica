@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Plus,
@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
 import { BudgetCalculator, BudgetItem } from '@/components/orders/budget-calculator';
+import { fetchServiceOrders, updateServiceOrderStatus } from '@/lib/supabase/services';
 
 const MOCK_USER: UserProfile = {
   id: 'user-001',
@@ -176,6 +177,17 @@ export default function ServiceOrdersPage() {
 
   const canSeeMoney = true;
 
+  // Carga inicial desde Supabase
+  useEffect(() => {
+    async function loadData() {
+      const realOrders = await fetchServiceOrders();
+      if (realOrders && realOrders.length > 0) {
+        setOrders(realOrders);
+      }
+    }
+    loadData();
+  }, []);
+
   const filteredOrders = orders.filter((ord) => {
     const matchesFilter =
       activeFilter === 'all' || ord.status === activeFilter;
@@ -193,8 +205,20 @@ export default function ServiceOrdersPage() {
     return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
   });
 
-  const handleSaveModal = () => {
+  const handleSaveModal = async () => {
     if (!editingOrder) return;
+
+    try {
+      await updateServiceOrderStatus(
+        editingOrder.id,
+        editingOrder.status,
+        editingOrder.technical_diagnosis,
+        editingOrder.final_price
+      );
+    } catch (err) {
+      console.warn('Actualización local realizada');
+    }
+
     setOrders((prev) =>
       prev.map((o) => (o.id === editingOrder.id ? editingOrder : o))
     );
@@ -273,7 +297,7 @@ export default function ServiceOrdersPage() {
             Órdenes de Servicio
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Usa las acciones de la tabla para editar la orden, presupuestar repuestos, imprimir ticket o ir al portal B2C.
+            Lista de reparaciones conectada a Supabase con ordenamiento de fecha y acciones rápidas.
           </p>
         </div>
         <Link
@@ -488,7 +512,7 @@ export default function ServiceOrdersPage() {
               </button>
             </div>
 
-            {/* Pestañas Internas del Modal (Detalles vs Presupuestador) */}
+            {/* Pestañas Internas del Modal */}
             <div className="flex gap-2 px-6 border-b border-outline-variant/50 bg-surface-container-low pt-3">
               <button
                 onClick={() => setActiveModalTab('details')}
@@ -512,11 +536,10 @@ export default function ServiceOrdersPage() {
               </button>
             </div>
 
-            {/* Contenido del Modal (Scrollable) */}
+            {/* Contenido del Modal */}
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
               {activeModalTab === 'details' && (
                 <>
-                  {/* SECCIÓN 1: CAMBIO DE ESTADO DE LA ORDEN */}
                   <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
                     <label className="block font-label-caps text-xs text-primary uppercase font-bold">
                       1. Cambiar Estado de la Orden
@@ -540,7 +563,6 @@ export default function ServiceOrdersPage() {
                     </select>
                   </div>
 
-                  {/* SECCIÓN 2: COMUNICACIÓN DIRECTA CON EL CLIENTE */}
                   <div className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/60 space-y-3">
                     <label className="block font-label-caps text-xs text-emerald-400 uppercase font-bold flex items-center gap-1.5">
                       <MessageSquare className="w-4 h-4" /> 2. Comunicarse con el Cliente
@@ -578,7 +600,6 @@ export default function ServiceOrdersPage() {
                     </div>
                   </div>
 
-                  {/* SECCIÓN 3: EDICIÓN DE DATOS TÉCNICOS Y PRESUPUESTO */}
                   <div className="space-y-4">
                     <div>
                       <label className="block font-label-caps text-xs text-on-surface-variant mb-1 uppercase font-semibold">
