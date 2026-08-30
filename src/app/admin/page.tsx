@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import {
   ShieldCheck,
@@ -19,18 +20,30 @@ import {
   Check,
   RefreshCw,
   Loader2,
-  ExternalLink,
+  LogOut,
 } from 'lucide-react';
 import { Shop } from '@/types';
 import { fetchAllShopsForAdmin, updateShopSubscriptionStatus } from '@/lib/supabase/services';
 
 export default function SuperAdminDashboardPage() {
+  const router = useRouter();
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedShopId, setCopiedShopId] = useState<string | null>(null);
 
+  // Verificar sesión de Super Administrador al cargar
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const adminSession = sessionStorage.getItem('prorepair_admin_session');
+      if (adminSession !== 'authenticated_superadmin') {
+        router.push('/admin/login');
+        return;
+      }
+      setAuthorized(true);
+    }
+
     async function loadShops() {
       setLoading(true);
       try {
@@ -43,7 +56,14 @@ export default function SuperAdminDashboardPage() {
       }
     }
     loadShops();
-  }, []);
+  }, [router]);
+
+  const handleAdminLogout = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('prorepair_admin_session');
+    }
+    router.push('/admin/login');
+  };
 
   const handleToggleActiveStatus = async (shop: Shop) => {
     const newActive = !shop.active;
@@ -80,6 +100,14 @@ export default function SuperAdminDashboardPage() {
     );
   };
 
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6 text-on-surface">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
+
   const filteredShops = shops.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,7 +121,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col">
-      {/* HEADER SUPER ADMIN */}
+      {/* HEADER SUPER ADMIN CON PROTECCIÓN Y BOTÓN CERRAR SESIÓN */}
       <header className="bg-surface-container border-b border-outline-variant px-6 h-20 flex items-center justify-between sticky top-0 z-20 shadow-md">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -107,10 +135,17 @@ export default function SuperAdminDashboardPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard"
-            className="text-xs font-title-sm text-on-surface-variant hover:text-primary font-bold transition-colors"
+            className="text-xs font-title-sm text-on-surface-variant hover:text-primary font-bold transition-colors hidden sm:block"
           >
             Ir a Panel Taller →
           </Link>
+
+          <button
+            onClick={handleAdminLogout}
+            className="bg-error/20 hover:bg-error/30 text-error border border-error/30 px-3.5 py-1.5 rounded-xl font-title-sm text-xs font-bold flex items-center gap-1.5 transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Salir del Admin
+          </button>
         </div>
       </header>
 
