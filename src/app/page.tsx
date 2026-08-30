@@ -1,7 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import {
   Wrench,
@@ -23,16 +24,35 @@ import {
   DollarSign,
   TrendingUp,
   Star,
+  UserCheck,
+  User,
+  ChevronRight,
+  Clock,
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const router = useRouter();
+
+  // Estado del selector manual del Hero: 'cliente' vs 'tecnico'
+  const [heroMode, setHeroMode] = useState<'cliente' | 'tecnico'>('cliente');
+  const [clientDniQuery, setClientDniQuery] = useState('');
+
+  const handleClientSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (clientDniQuery.trim()) {
+      router.push(`/track?q=${encodeURIComponent(clientDniQuery.trim())}`);
+    } else {
+      router.push('/track');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col font-sans selection:bg-primary/30">
       {/* 1. HEADER / NAVBAR */}
       <header className="sticky top-0 bg-surface/90 backdrop-blur-md border-b border-outline-variant/60 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <Link href="/" className="hover:opacity-90 transition-opacity">
-            <Logo size={40} textSubtitle="SaaS Técnico Multirubro" />
+            <Logo size={40} textSubtitle="Gestión de Servicio Técnico" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 font-title-sm text-sm text-on-surface-variant">
@@ -61,47 +81,134 @@ export default function LandingPage() {
               href="/dashboard"
               className="bg-primary-container text-on-primary-container hover:bg-primary font-title-sm text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:shadow-primary/40 flex items-center gap-2"
             >
-              Probar Demo Gratis <ArrowRight className="w-4 h-4" />
+              Probar Demo <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </header>
 
-      {/* 2. HERO SECTION */}
-      <section className="relative pt-16 pb-24 px-6 overflow-hidden bg-gradient-to-b from-surface-container-high/40 to-background">
+      {/* 2. HERO SECTION REDISEÑADO CON SELECTOR MANUAL DE PERFIL (CLIENTE vs TÉCNICO) */}
+      <section className="relative pt-12 pb-20 px-6 overflow-hidden bg-gradient-to-b from-surface-container-high/40 via-background to-background">
         <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-label-caps text-xs font-bold uppercase tracking-wider animate-pulse">
-            <Sparkles className="w-3.5 h-3.5" /> El SaaS B2B2C para Talleres de Precisión
-          </div>
-
-          <h1 className="font-display-lg text-4xl sm:text-6xl font-bold text-on-surface tracking-tight leading-tight">
-            Gestión Inteligente para Talleres de Servicio Técnico <span className="text-primary underline decoration-primary/40 underline-offset-8">Multirubro</span>
-          </h1>
-
-          <p className="font-body-md text-lg sm:text-xl text-on-surface-variant max-w-3xl mx-auto leading-relaxed">
-            Recepción rápida de equipos, emisión de <strong>ticket térmico de 80mm</strong>, portal público de seguimiento en tiempo real <strong>por DNI o WhatsApp</strong>, y control absoluto de inventario y finanzas.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/register"
-              className="w-full sm:w-auto bg-primary text-on-primary font-title-sm text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-container transition-all shadow-[0_0_20px_rgba(124,58,237,0.4)] flex items-center justify-center gap-3"
+          {/* Selector Manual Tipo Carrusel / Pestañas */}
+          <div className="inline-flex p-1.5 rounded-2xl bg-surface-container border border-outline-variant/80 shadow-lg gap-2">
+            <button
+              onClick={() => setHeroMode('cliente')}
+              className={`px-6 py-2.5 rounded-xl font-title-sm text-sm font-bold flex items-center gap-2 transition-all ${
+                heroMode === 'cliente'
+                  ? 'bg-primary text-on-primary shadow-md scale-105'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+              }`}
             >
-              Comenzar Prueba Gratuita 14 Días <Zap className="w-5 h-5" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="w-full sm:w-auto bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-base font-bold px-8 py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+              <User className="w-4 h-4" /> Soy Cliente
+            </button>
+            <button
+              onClick={() => setHeroMode('tecnico')}
+              className={`px-6 py-2.5 rounded-xl font-title-sm text-sm font-bold flex items-center gap-2 transition-all ${
+                heroMode === 'tecnico'
+                  ? 'bg-primary text-on-primary shadow-md scale-105'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high'
+              }`}
             >
-              Ver Panel en Vivo (Demo)
-            </Link>
+              <Wrench className="w-4 h-4" /> Soy Técnico / Dueño de Taller
+            </button>
           </div>
 
-          <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-on-surface-variant font-medium">
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Sin tarjeta requerida</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Configuración en 2 minutos</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Soporte multirubro completo</span>
-          </div>
+          {/* VISTA A: MODO "SOY CLIENTE" */}
+          {heroMode === 'cliente' && (
+            <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-label-caps text-xs font-bold uppercase tracking-wider">
+                <Clock className="w-3.5 h-3.5" /> Consulta de Reparación en Tiempo Real
+              </div>
+
+              <h1 className="font-display-lg text-4xl sm:text-6xl font-bold text-on-surface tracking-tight leading-tight">
+                ¿Dejaste tu equipo en reparación? <br />
+                <span className="text-primary underline decoration-primary/40 underline-offset-8">
+                  Sigue su avance en vivo
+                </span>
+              </h1>
+
+              <p className="font-body-md text-lg sm:text-xl text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
+                Ingresa tu DNI o código de orden para conocer el diagnóstico técnico, repuestos asignados y cuándo estará listo para retirar.
+              </p>
+
+              {/* Buscador Rápido de Cliente */}
+              <form
+                onSubmit={handleClientSearchSubmit}
+                className="max-w-2xl mx-auto bg-surface-container border border-outline-variant/80 rounded-2xl p-3 shadow-2xl flex flex-col sm:flex-row gap-3"
+              >
+                <div className="relative flex-1">
+                  <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-primary" />
+                  <input
+                    type="text"
+                    value={clientDniQuery}
+                    onChange={(e) => setClientDniQuery(e.target.value)}
+                    placeholder="Ingresa tu DNI o Código OT (ej: 38912402)..."
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-3.5 pl-12 pr-4 font-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/50 text-sm sm:text-base"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold px-6 py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <Search className="w-4 h-4" /> Consultar el estado de mi equipo
+                </button>
+              </form>
+
+              {/* Botón Destacado de Acceso Directo */}
+              <div className="pt-2">
+                <Link
+                  href="/track"
+                  className="inline-flex items-center gap-3 px-6 py-3 bg-surface-container-high border border-outline-variant hover:border-primary/50 rounded-2xl text-on-surface hover:text-primary transition-all font-title-sm text-sm font-bold shadow-sm group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-on-primary transition-colors">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <span>Consultar el estado de mi equipo</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* VISTA B: MODO "SOY TÉCNICO / DUEÑO DE TALLER" */}
+          {heroMode === 'tecnico' && (
+            <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary font-label-caps text-xs font-bold uppercase tracking-wider animate-pulse">
+                <Sparkles className="w-3.5 h-3.5" /> El SaaS B2B2C para Talleres de Precisión
+              </div>
+
+              <h1 className="font-display-lg text-4xl sm:text-6xl font-bold text-on-surface tracking-tight leading-tight">
+                Gestión Inteligente para Talleres de Servicio Técnico <span className="text-primary underline decoration-primary/40 underline-offset-8">Multirubro</span>
+              </h1>
+
+              <p className="font-body-md text-lg sm:text-xl text-on-surface-variant max-w-3xl mx-auto leading-relaxed">
+                Recepción rápida de equipos, emisión de <strong>ticket térmico de 80mm</strong>, portal público de seguimiento en tiempo real <strong>por DNI o WhatsApp</strong>, y control absoluto de inventario y finanzas.
+              </p>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                <Link
+                  href="/register"
+                  className="w-full sm:w-auto bg-primary text-on-primary font-title-sm text-base font-bold px-8 py-4 rounded-xl hover:bg-primary-container transition-all shadow-[0_0_20px_rgba(124,58,237,0.4)] flex items-center justify-center gap-3"
+                >
+                  Comenzar Prueba Gratuita 14 Días <Zap className="w-5 h-5" />
+                </Link>
+                <Link
+                  href="/dashboard"
+                  className="w-full sm:w-auto bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-base font-bold px-8 py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  Ver Panel en Vivo (Demo)
+                </Link>
+              </div>
+
+              <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-on-surface-variant font-medium">
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Sin tarjeta requerida</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Configuración en 2 minutos</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Soporte multirubro completo</span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -183,7 +290,7 @@ export default function LandingPage() {
                 <Search className="w-6 h-6" />
               </div>
               <h3 className="font-title-sm text-xl font-bold text-on-surface">
-                Seguimiento B2C por DNI
+                Seguimiento Público por DNI
               </h3>
               <p className="font-body-sm text-on-surface-variant text-sm leading-relaxed">
                 Tus clientes pueden consultar el estado en vivo de su equipo introduciendo su DNI o código de orden desde cualquier celular.
@@ -265,7 +372,7 @@ export default function LandingPage() {
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> 1 Sucursal</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasta 2 Usuarios Térmicos</li>
                   <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Órdenes Ilimitadas</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ticket 80mm & Portal B2C</li>
+                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ticket 80mm & Seguimiento por DNI</li>
                 </ul>
               </div>
               <Link
