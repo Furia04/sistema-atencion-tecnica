@@ -49,19 +49,39 @@ export default function DashboardLayout({
       const shops = await fetchAllShopsForAdmin();
       const profileEmail = (profile?.email || 'admin@prorepair.com').toLowerCase();
 
-      // Buscar el taller correspondiente por email o ID de taller
-      const currentShop = shops.find(
+      // 1. Buscar taller correspondiente por email o ID
+      let currentShop = shops.find(
         (s) => (s.owner_email && s.owner_email.toLowerCase() === profileEmail) || s.id === profile?.shop_id
       ) || shops[0];
+
+      // 2. Verificar sobreescritura directa en localStorage si existe
+      if (typeof window !== 'undefined' && profileEmail) {
+        try {
+          const overridesStr = localStorage.getItem('prorepair_shop_overrides');
+          if (overridesStr) {
+            const overrides: Record<string, { subscription_status: any; active: boolean }> = JSON.parse(overridesStr);
+            const overrideData = overrides[profileEmail] || (currentShop ? overrides[currentShop.id] : null);
+
+            if (overrideData && currentShop) {
+              currentShop = {
+                ...currentShop,
+                subscription_status: overrideData.subscription_status,
+                active: overrideData.active,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('Error al verificar overrides locales');
+        }
+      }
 
       if (currentShop) {
         setUserShop(currentShop);
       }
     } catch (err) {
       console.warn('Cargado perfil con mock fallback');
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -82,7 +102,7 @@ export default function DashboardLayout({
     };
   }, []);
 
-  // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER PARA TODOS LOS USUARIOS:
+  // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER:
   // 1. Taller Suspendido / Dado de baja por el Administrador (active === false o subscription_status === 'canceled'/'past_due')
   const isSuspended = userShop
     ? (!userShop.active || userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due')

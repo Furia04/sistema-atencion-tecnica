@@ -40,7 +40,7 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
   const shopMap = new Map<string, Shop>();
 
-  // 1. Talleres iniciales de ejemplo
+  // 1. Talleres iniciales base
   const defaultShops: Shop[] = [
     {
       id: 'shop-north-station',
@@ -92,7 +92,7 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     console.warn('Error Supabase fetchAllShopsForAdmin');
   }
 
-  // 3. Consultar la tabla 'users' de Supabase para capturar todos los correos registrados
+  // 3. Consultar la tabla 'users' de Supabase para capturar correos
   try {
     const { data: dbUsers } = await supabase
       .from('users')
@@ -168,14 +168,20 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
       console.warn('Error localStorage shops');
     }
 
-    // 6. APLICAR SOBREESCRITURAS DE ESTADO (OVERRIDES PERMANENTES EN LOCALSTORAGE)
+    // 6. APLICAR SOBREESCRITURAS UNIFICADAS POR EMAIL Y POR ID
     try {
       const overridesStr = localStorage.getItem('prorepair_shop_overrides');
       if (overridesStr) {
         const overrides: Record<string, { subscription_status: any; active: boolean }> = JSON.parse(overridesStr);
-        Object.entries(overrides).forEach(([keyId, statusData]) => {
+
+        Object.entries(overrides).forEach(([key, statusData]) => {
+          const keyLower = key.toLowerCase();
           shopMap.forEach((shop, emailKey) => {
-            if (shop.id === keyId || shop.owner_email.toLowerCase() === keyId.toLowerCase()) {
+            if (
+              shop.id === key ||
+              shop.owner_email.toLowerCase() === keyLower ||
+              emailKey === keyLower
+            ) {
               shopMap.set(emailKey, {
                 ...shop,
                 subscription_status: statusData.subscription_status,
@@ -190,12 +196,9 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
     }
   }
 
-  // Filtrar entradas vacías o génericas inválidas si existen alternativas
-  const finalShops = Array.from(shopMap.values()).filter(
+  return Array.from(shopMap.values()).filter(
     (s) => s.owner_email && s.owner_email !== 'usuario@taller.com'
   );
-
-  return finalShops;
 }
 
 export async function updateShopSubscriptionStatus(
@@ -217,7 +220,7 @@ export async function updateShopSubscriptionStatus(
     console.warn('Actualización Supabase omitida o fallback');
   }
 
-  // 2. Guardar sobreescritura PERMANENTE en localStorage por ID y por EMAIL
+  // 2. Guardar sobreescritura PERMANENTE en localStorage sincronizando por ID y por EMAIL
   if (typeof window !== 'undefined') {
     try {
       const overridesStr = localStorage.getItem('prorepair_shop_overrides');
@@ -225,13 +228,19 @@ export async function updateShopSubscriptionStatus(
         ? JSON.parse(overridesStr)
         : {};
 
+      // Guardar por ID
       overrides[shopId] = { subscription_status: status, active: active };
-      localStorage.setItem('prorepair_shop_overrides', JSON.stringify(overrides));
 
-      // Actualizar también en lista de talleres registrados
+      // Buscar si este shopId corresponde a un email registrado y guardar sobreescritura por email también
       const storedStr = localStorage.getItem('prorepair_registered_shops');
       if (storedStr) {
         let localShops: Shop[] = JSON.parse(storedStr);
+        localShops.forEach((s) => {
+          if (s.id === shopId || s.owner_email === shopId) {
+            overrides[s.owner_email.toLowerCase()] = { subscription_status: status, active: active };
+          }
+        });
+
         localShops = localShops.map((s) =>
           s.id === shopId || s.owner_email === shopId
             ? { ...s, subscription_status: status, active: active }
@@ -239,6 +248,8 @@ export async function updateShopSubscriptionStatus(
         );
         localStorage.setItem('prorepair_registered_shops', JSON.stringify(localShops));
       }
+
+      localStorage.setItem('prorepair_shop_overrides', JSON.stringify(overrides));
 
       // 3. Emitir evento para reactividad instantánea
       window.dispatchEvent(new Event('prorepair_shop_updated'));
