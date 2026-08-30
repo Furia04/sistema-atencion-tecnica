@@ -23,10 +23,12 @@ import {
   Printer,
   DollarSign,
   Calculator,
+  Loader2,
+  FolderOpen,
 } from 'lucide-react';
 import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
-import { BudgetCalculator, BudgetItem } from '@/components/orders/budget-calculator';
-import { fetchServiceOrders, updateServiceOrderStatus } from '@/lib/supabase/services';
+import { BudgetCalculator } from '@/components/orders/budget-calculator';
+import { fetchServiceOrders, updateServiceOrderStatus, fetchInventory } from '@/lib/supabase/services';
 
 const MOCK_USER: UserProfile = {
   id: 'user-001',
@@ -37,135 +39,10 @@ const MOCK_USER: UserProfile = {
   can_view_financials: true,
 };
 
-const MOCK_INVENTORY: InventoryItem[] = [
-  {
-    id: 'inv-1',
-    shop_id: 'shop-north-station',
-    sku: 'SCR-IP13P-01',
-    name: 'Pantalla iPhone 13 Pro (OLED)',
-    category: 'Pantallas',
-    stock: 45,
-    min_stock: 10,
-    cost: 120.0,
-    price: 250.0,
-    created_at: '2026-10-01',
-  },
-  {
-    id: 'inv-2',
-    shop_id: 'shop-north-station',
-    sku: 'BAT-SS21-02',
-    name: 'Batería Samsung S21 (4000mAh)',
-    category: 'Baterías',
-    stock: 3,
-    min_stock: 8,
-    cost: 25.0,
-    price: 75.0,
-    created_at: '2026-10-05',
-  },
-  {
-    id: 'inv-3',
-    shop_id: 'shop-north-station',
-    sku: 'PRT-USBC-UN',
-    name: 'Puerto de Carga Universal Type-C',
-    category: 'Puertos',
-    stock: 18,
-    min_stock: 15,
-    cost: 4.5,
-    price: 35.0,
-    created_at: '2026-09-12',
-  },
-];
-
-const INITIAL_ORDERS: ServiceOrder[] = [
-  {
-    id: 'wo-8888',
-    shop_id: 'shop-north-station',
-    tracking_code: '#WO-8888',
-    device_id: 'dev-5',
-    customer_id: 'cust-5',
-    customer_name: 'Carlos Gómez',
-    customer_document_id: '32987654',
-    customer_phone: '+5491199887766',
-    device_info: 'Celular · Samsung S21',
-    status: 'abandonado',
-    reported_fault: 'Equipo dejado en el taller por más de 90 días sin respuesta',
-    technical_diagnosis: 'Batería reemplazada pero cliente nunca se presentó a retirar',
-    estimated_completion: '19 Oct 2026',
-    final_price: 120.0,
-    created_at: '2026-07-10T10:00:00Z',
-  },
-  {
-    id: 'wo-8889',
-    shop_id: 'shop-north-station',
-    tracking_code: '#WO-8889',
-    device_id: 'dev-4',
-    customer_id: 'cust-4',
-    customer_name: 'Marcus Vance',
-    customer_document_id: '29876123',
-    customer_phone: '+5491133445566',
-    device_info: 'Drone · DJI Mavic 3',
-    status: 'esperando_cliente',
-    reported_fault: 'Presupuesto enviado por reemplazo de motor del rotor',
-    technical_diagnosis: 'Reemplazo de motor de brazo derecho y calibración de giroscopio',
-    estimated_completion: '20 Oct 2026',
-    final_price: 340.0,
-    created_at: '2026-08-01T11:00:00Z',
-  },
-  {
-    id: 'wo-8890',
-    shop_id: 'shop-north-station',
-    tracking_code: '#WO-8890',
-    device_id: 'dev-3',
-    customer_id: 'cust-3',
-    customer_name: 'Global Logistics LLC',
-    customer_document_id: '30999888',
-    customer_phone: '+5491122334455',
-    device_info: 'Scanner · Zebra TC52',
-    status: 'para_entregar',
-    reported_fault: 'Calibración de cristal láser y módulo óptico completada',
-    technical_diagnosis: 'Lente reemplazado y pruebas de lectura pasadas',
-    estimated_completion: '23 Oct 2026',
-    final_price: 95.0,
-    created_at: '2026-09-15T14:20:00Z',
-  },
-  {
-    id: 'wo-8891',
-    shop_id: 'shop-north-station',
-    tracking_code: '#WO-8891',
-    device_id: 'dev-2',
-    customer_id: 'cust-2',
-    customer_name: 'Sarah Jenkins',
-    customer_document_id: '35123987',
-    customer_phone: '+5491188990011',
-    device_info: 'Smartphone · iPhone 13 Pro',
-    status: 'esperando_repuesto',
-    reported_fault: 'Pantalla rota y módulo de carga dañado',
-    technical_diagnosis: 'En espera del repuesto original de pantalla OLED',
-    estimated_completion: '25 Oct 2026',
-    final_price: 185.5,
-    created_at: '2026-10-01T09:15:00Z',
-  },
-  {
-    id: 'wo-8892',
-    shop_id: 'shop-north-station',
-    tracking_code: '#WO-8892',
-    device_id: 'dev-1',
-    customer_id: 'cust-1',
-    customer_name: 'Acme Corp',
-    customer_document_id: '38912402',
-    customer_phone: '+5491144556677',
-    device_info: 'Laptop · ThinkPad T14',
-    status: 'en_revision',
-    reported_fault: 'No enciende tras derrame de líquido',
-    technical_diagnosis: 'Limpieza por ultrasonido realizada. Revisando líneas de alimentación',
-    estimated_completion: '24 Oct 2026',
-    final_price: 450.0,
-    created_at: '2026-10-22T08:00:00Z',
-  },
-];
-
 export default function ServiceOrdersPage() {
-  const [orders, setOrders] = useState<ServiceOrder[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -177,12 +54,21 @@ export default function ServiceOrdersPage() {
 
   const canSeeMoney = true;
 
-  // Carga inicial desde Supabase
+  // Cargar órdenes e inventario reales de la base de datos Supabase del Tenant
   useEffect(() => {
     async function loadData() {
-      const realOrders = await fetchServiceOrders();
-      if (realOrders && realOrders.length > 0) {
-        setOrders(realOrders);
+      setLoading(true);
+      try {
+        const [realOrders, realInventory] = await Promise.all([
+          fetchServiceOrders(),
+          fetchInventory(),
+        ]);
+        setOrders(realOrders || []);
+        setInventory(realInventory || []);
+      } catch (err) {
+        console.error('Error al cargar órdenes de Supabase:', err);
+      } finally {
+        setLoading(false);
       }
     }
     loadData();
@@ -297,7 +183,7 @@ export default function ServiceOrdersPage() {
             Órdenes de Servicio
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1">
-            Lista de reparaciones conectada a Supabase con ordenamiento de fecha y acciones rápidas.
+            Gestión en tiempo real conectada a la base de datos de tu taller.
           </p>
         </div>
         <Link
@@ -358,130 +244,157 @@ export default function ServiceOrdersPage() {
         </div>
       </div>
 
-      {/* Tabla de Alta Densidad */}
+      {/* Tabla / Estado Vacío de Base de Datos */}
       <div className="bg-surface-container-low border border-outline-variant rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse whitespace-nowrap">
-            <thead className="bg-surface-container border-b border-outline-variant">
-              <tr>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Código OT
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Fecha Ingreso
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Cliente (DNI)
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Dispositivo / Equipo
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
-                  Monto Total
-                </th>
-                <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/50 font-mono-data text-mono-data">
-              {sortedOrders.map((ord) => (
-                <tr
-                  key={ord.id}
-                  onClick={() => {
-                    setEditingOrder(ord);
-                    setActiveModalTab('details');
-                  }}
-                  className="hover:bg-surface-container transition-colors group cursor-pointer"
-                >
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-primary font-bold">
-                    {ord.tracking_code}
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface-variant text-xs">
-                    {new Date(ord.created_at).toLocaleDateString('es-AR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface">
-                    <div>
-                      <span className="font-bold">{ord.customer_name}</span>
-                      {ord.customer_document_id && (
-                        <span className="text-[11px] text-on-surface-variant block font-mono">
-                          DNI: {ord.customer_document_id}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface-variant">
-                    {ord.device_info}
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v">
-                    {getStatusBadge(ord.status)}
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface text-right font-bold">
-                    {canSeeMoney ? `$${ord.final_price?.toFixed(2)}` : '--'}
-                  </td>
-                  <td className="px-table-cell-padding-h py-table-cell-padding-v text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingOrder(ord);
-                          setActiveModalTab('budget');
-                        }}
-                        className="p-1.5 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors"
-                        title="Presupuestar Repuestos y Mano de Obra"
-                      >
-                        <Calculator className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingOrder(ord);
-                          setActiveModalTab('details');
-                        }}
-                        className="p-1.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                        title="Editar Orden y Contactar Cliente"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.print();
-                        }}
-                        className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
-                        title="Imprimir Ticket Térmico 80mm"
-                      >
-                        <Receipt className="w-4 h-4" />
-                      </button>
-
-                      <Link
-                        href={`/track/${ord.tracking_code.replace('#', '')}`}
-                        target="_blank"
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
-                        title="Abrir Portal B2C Cliente"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="p-16 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <p className="font-body-sm text-xs">Cargando órdenes de la base de datos...</p>
+          </div>
+        ) : sortedOrders.length === 0 ? (
+          <div className="p-16 flex flex-col items-center justify-center text-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface-variant border border-outline-variant/60">
+              <FolderOpen className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-title-sm text-lg font-bold text-on-surface">
+                Aún no tienes órdenes registradas en tu taller
+              </h3>
+              <p className="font-body-sm text-xs text-on-surface-variant max-w-md mx-auto mt-1">
+                Comienza registrando la recepción de tu primer equipo para generar la comanda térmica de 80mm y el código de seguimiento.
+              </p>
+            </div>
+            <Link
+              href="/orders/new"
+              className="bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" /> Registrar Primera Orden
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
+              <thead className="bg-surface-container border-b border-outline-variant">
+                <tr>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
+                    Código OT
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
+                    Fecha Ingreso
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
+                    Cliente (DNI)
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
+                    Dispositivo / Equipo
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
+                    Monto Total
+                  </th>
+                  <th className="px-table-cell-padding-h py-table-cell-padding-v font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider text-right">
+                    Acciones
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/50 font-mono-data text-mono-data">
+                {sortedOrders.map((ord) => (
+                  <tr
+                    key={ord.id}
+                    onClick={() => {
+                      setEditingOrder(ord);
+                      setActiveModalTab('details');
+                    }}
+                    className="hover:bg-surface-container transition-colors group cursor-pointer"
+                  >
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-primary font-bold">
+                      {ord.tracking_code}
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface-variant text-xs">
+                      {new Date(ord.created_at).toLocaleDateString('es-AR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface">
+                      <div>
+                        <span className="font-bold">{ord.customer_name}</span>
+                        {ord.customer_document_id && (
+                          <span className="text-[11px] text-on-surface-variant block font-mono">
+                            DNI: {ord.customer_document_id}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface-variant">
+                      {ord.device_info}
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v">
+                      {getStatusBadge(ord.status)}
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-on-surface text-right font-bold">
+                      {canSeeMoney ? `$${ord.final_price?.toFixed(2)}` : '--'}
+                    </td>
+                    <td className="px-table-cell-padding-h py-table-cell-padding-v text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingOrder(ord);
+                            setActiveModalTab('budget');
+                          }}
+                          className="p-1.5 rounded bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 transition-colors"
+                          title="Presupuestar Repuestos y Mano de Obra"
+                        >
+                          <Calculator className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingOrder(ord);
+                            setActiveModalTab('details');
+                          }}
+                          className="p-1.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                          title="Editar Orden y Contactar Cliente"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.print();
+                          }}
+                          className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
+                          title="Imprimir Ticket Térmico 80mm"
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </button>
+
+                        <Link
+                          href={`/track/${ord.tracking_code.replace('#', '')}`}
+                          target="_blank"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded bg-surface-bright text-on-surface hover:text-primary hover:bg-surface-container-highest transition-colors"
+                          title="Abrir Portal B2C Cliente"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* VENTANA EMERGENTE DE EDICIÓN, COMUNICACIÓN Y PRESUPUESTADOR (MODAL) */}
+      {/* VENTANA EMERGENTE DE EDICIÓN (MODAL) */}
       {editingOrder && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
@@ -512,7 +425,7 @@ export default function ServiceOrdersPage() {
               </button>
             </div>
 
-            {/* Pestañas Internas del Modal */}
+            {/* Pestañas Internas */}
             <div className="flex gap-2 px-6 border-b border-outline-variant/50 bg-surface-container-low pt-3">
               <button
                 onClick={() => setActiveModalTab('details')}
@@ -680,7 +593,7 @@ export default function ServiceOrdersPage() {
                 <BudgetCalculator
                   order={editingOrder}
                   user={MOCK_USER}
-                  availableInventory={MOCK_INVENTORY}
+                  availableInventory={inventory}
                   onSaveBudget={(labor, parts, finalPrice, items) => {
                     setEditingOrder({
                       ...editingOrder,

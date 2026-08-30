@@ -1,8 +1,42 @@
 import { supabase } from './client';
-import { Customer, DeviceCategoryTemplate, InventoryItem, ServiceOrder } from '@/types';
+import { Customer, DeviceCategoryTemplate, InventoryItem, ServiceOrder, UserProfile } from '@/types';
 
 // =======================================================
-// SERVICIOS DE ÓRDENES DE SERVICIO
+// OBTENER PERFIL Y TALLER (TENANT) DEL USUARIO AUTENTICADO
+// =======================================================
+
+export async function getCurrentUserProfile(): Promise<UserProfile | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (error || !data) {
+      // Retornar objeto perfil con id de auth y shop predeterminado
+      return {
+        id: user.id,
+        email: user.email || '',
+        role: (user.user_metadata?.role as any) || 'owner',
+        shop_id: user.user_metadata?.shop_id || user.id,
+        full_name: user.user_metadata?.full_name || user.email,
+        can_view_financials: true,
+      };
+    }
+
+    return data;
+  } catch (err) {
+    console.warn('Error al obtener perfil de usuario:', err);
+    return null;
+  }
+}
+
+// =======================================================
+// ÓRDENES DE SERVICIO (MULTI-TENANT REAL)
 // =======================================================
 
 export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
@@ -16,7 +50,10 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       `)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error Supabase fetchServiceOrders:', error);
+      return [];
+    }
 
     return (data || []).map((ord: any) => ({
       id: ord.id,
@@ -33,15 +70,93 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       estimated_cost: ord.estimated_cost,
       final_price: ord.final_price,
       created_at: ord.created_at,
-      customer_name: ord.customers?.full_name,
-      customer_phone: ord.customers?.phone,
-      customer_document_id: ord.customers?.document_id,
+      customer_name: ord.customers?.full_name || 'Cliente sin nombre',
+      customer_phone: ord.customers?.phone || '',
+      customer_document_id: ord.customers?.document_id || '',
       device_info: `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
     }));
   } catch (err) {
-    console.warn('Fallback a datos locales mientras se conecta Supabase:', err);
     return [];
   }
+}
+
+export async function createServiceOrderWithDevice(orderPayload: {
+  customer: { full_name: string; phone: string; document_id?: string; email?: string };
+  device: { type: string; brand: string; model: string; serial_number?: string; custom_attributes?: any };
+  order: { reported_fault: string; estimated_cost?: number; final_price?: number };
+}) {
+  const profile = await getCurrentUserProfile();
+  const shopId = profile?.shop_id || '00000000-0000-0000-0000-000000000000';
+
+  // 1. Insertar o buscar cliente por DNI / Teléfono
+  let customerId = '';
+  if (orderPayload.customer.document_id) {
+    const { data: existingCust } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('document_id', orderPayload.customer.document_id)
+      .maybeSingle();
+
+    if (existingCust) {
+      customerId = existingCust.id;
+    }
+  }
+
+  if (!customerId) {
+    const { data: newCust, error: custErr } = await supabase
+      .from('customers')
+      .insert([{
+        shop_id: shopId,
+        full_name: orderPayload.customer.full_name,
+        phone: orderPayload.customer.phone,
+        document_id: orderPayload.customer.document_id,
+        email: orderPayload.customer.email,
+      }])
+      .select()
+      .single();
+
+    if (custErr) throw custErr;
+    customerId = newCust.id;
+  }
+
+  // 2. Insertar dispositivo
+  const { data: newDevice, error: devErr } = await supabase
+    .from('devices')
+    .insert([{
+      shop_id: shopId,
+      customer_id: customerId,
+      type: orderPayload.device.type,
+      brand: orderPayload.device.brand,
+      model: orderPayload.device.model,
+      serial_number: orderPayload.device.serial_number,
+      custom_attributes: orderPayload.device.custom_attributes || {},
+    }])
+    .select()
+    .single();
+
+  if (devErr) throw devErr;
+
+  // 3. Insertar orden de servicio
+  const randomCode = `#WO-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const { data: newOrder, error: ordErr } = await supabase
+    .from('service_orders')
+    .insert([{
+      shop_id: shopId,
+      tracking_code: randomCode,
+      device_id: newDevice.id,
+      customer_id: customerId,
+      status: 'recibido',
+      reported_fault: orderPayload.order.reported_fault,
+      estimated_cost: orderPayload.order.estimated_cost || 0,
+      final_price: orderPayload.order.final_price || 0,
+    }])
+    .select()
+    .single();
+
+  if (ordErr) throw ordErr;
+
+  return newOrder;
 }
 
 export async function updateServiceOrderStatus(
@@ -66,7 +181,7 @@ export async function updateServiceOrderStatus(
 }
 
 // =======================================================
-// SERVICIOS DE CLIENTES
+// CLIENTES (MULTI-TENANT REAL)
 // =======================================================
 
 export async function fetchCustomers(): Promise<Customer[]> {
@@ -74,28 +189,17 @@ export async function fetchCustomers(): Promise<Customer[]> {
     const { data, error } = await supabase
       .from('customers')
       .select('*')
-      .order('full_name', { ascending: true });
+      .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) return [];
     return data || [];
   } catch (err) {
     return [];
   }
 }
 
-export async function createCustomer(customer: Partial<Customer>) {
-  const { data, error } = await supabase
-    .from('customers')
-    .insert([customer])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
 // =======================================================
-// SERVICIOS DE INVENTARIO
+// INVENTARIO (MULTI-TENANT REAL)
 // =======================================================
 
 export async function fetchInventory(): Promise<InventoryItem[]> {
@@ -105,15 +209,29 @@ export async function fetchInventory(): Promise<InventoryItem[]> {
       .select('*')
       .order('name', { ascending: true });
 
-    if (error) throw error;
+    if (error) return [];
     return data || [];
   } catch (err) {
     return [];
   }
 }
 
+export async function createInventoryItem(item: Partial<InventoryItem>) {
+  const profile = await getCurrentUserProfile();
+  const shopId = profile?.shop_id || '00000000-0000-0000-0000-000000000000';
+
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert([{ ...item, shop_id: shopId }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 // =======================================================
-// SERVICIO PÚBLICO DE SEGUIMIENTO (B2C)
+// SEGUIMIENTO B2C PÚBLICO
 // =======================================================
 
 export async function fetchPublicOrderByTrackingCode(trackingCode: string) {
