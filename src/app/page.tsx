@@ -23,17 +23,16 @@ import {
   Users,
   DollarSign,
   TrendingUp,
-  Star,
   UserCheck,
   User,
   ChevronRight,
   Clock,
+  Package,
 } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
 
-  // Estado del selector manual del Hero: 'cliente' vs 'tecnico'
   const [heroMode, setHeroMode] = useState<'cliente' | 'tecnico'>('cliente');
   const [clientDniQuery, setClientDniQuery] = useState('');
 
@@ -63,10 +62,7 @@ export default function LandingPage() {
               Multirubro
             </a>
             <a href="#planes" className="hover:text-primary transition-colors">
-              Planes y Precios
-            </a>
-            <a href="#testimonios" className="hover:text-primary transition-colors">
-              Testimonios
+              Plan Único
             </a>
           </nav>
 
@@ -87,7 +83,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 2. HERO SECTION REDISEÑADO CON SELECTOR MANUAL DE PERFIL (CLIENTE vs TÉCNICO) */}
+      {/* 2. HERO SECTION CON SELECTOR MANUAL (SOY CLIENTE vs SOY TÉCNICO) */}
       <section className="relative pt-12 pb-20 px-6 overflow-hidden bg-gradient-to-b from-surface-container-high/40 via-background to-background">
         <div className="max-w-5xl mx-auto text-center space-y-8 relative z-10">
           {/* Selector Manual Tipo Carrusel / Pestañas */}
@@ -348,151 +344,99 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 5. PLANES Y PRECIOS */}
+      {/* 5. PLAN ÚNICO PLAN TALLER PRO ($15.000 / MES) */}
       <section id="planes" className="py-24 px-6 bg-surface-container-lowest border-t border-outline-variant/60">
-        <div className="max-w-7xl mx-auto space-y-16">
-          <div className="text-center max-w-3xl mx-auto space-y-3">
-            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface">
-              Planes Transparentes para Cada Etapa de Tu Taller
+        <div className="max-w-4xl mx-auto space-y-12 text-center">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary font-label-caps text-xs font-bold uppercase tracking-wider">
+              Precio Claro y Sin Sorpresas
+            </span>
+            <h2 className="font-display-lg text-3xl sm:text-5xl font-bold text-on-surface">
+              Un Solo Plan con Todo Incluido
             </h2>
-            <p className="font-body-md text-on-surface-variant text-base">
-              Suscríbete mensualmente de forma segura. Cancela cuando quieras.
+            <p className="font-body-md text-on-surface-variant text-base max-w-xl mx-auto">
+              Sin límites ocultos de órdenes ni costos extra. Activa tu taller en 2 minutos.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-8 flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-title-sm text-xl font-bold text-on-surface">Plan Técnico</h3>
-                <p className="font-body-sm text-xs text-on-surface-variant">Ideal para talleres unipersonales o inicio de actividades.</p>
-                <div className="font-display-lg text-4xl font-bold text-on-surface font-mono-data">
-                  $15 <span className="text-xs font-sans text-on-surface-variant font-normal">/mes</span>
-                </div>
-                <ul className="space-y-3 text-xs text-on-surface-variant pt-4 border-t border-outline-variant/50">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> 1 Sucursal</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasta 2 Usuarios Térmicos</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Órdenes Ilimitadas</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ticket 80mm & Seguimiento por DNI</li>
-                </ul>
-              </div>
-              <Link
-                href="/register"
-                className="w-full bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-sm font-bold py-3 rounded-xl transition-colors text-center block"
-              >
-                Comenzar Plan Técnico
-              </Link>
+          {/* Tarjeta de Plan Único Destacada */}
+          <div className="bg-surface-container border-2 border-primary rounded-3xl p-8 sm:p-12 space-y-8 shadow-2xl shadow-primary/15 relative overflow-hidden text-left max-w-2xl mx-auto">
+            <div className="absolute top-0 right-0 bg-primary text-on-primary font-label-caps text-xs font-bold px-4 py-1.5 rounded-bl-2xl uppercase tracking-wider">
+              PLAN COMPLETO
             </div>
 
-            <div className="bg-surface-container border-2 border-primary rounded-2xl p-8 flex flex-col justify-between space-y-6 relative shadow-2xl shadow-primary/10">
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-on-primary font-label-caps text-[10px] uppercase font-bold px-3 py-1 rounded-full tracking-wider">
-                MÁS POPULAR
+            <div className="space-y-2 border-b border-outline-variant/60 pb-6">
+              <h3 className="font-headline-md text-2xl sm:text-3xl font-bold text-primary">
+                Plan Taller Pro
+              </h3>
+              <p className="font-body-sm text-sm text-on-surface-variant">
+                Acceso total a todas las herramientas operativas, financieras y de clientes para tu taller.
+              </p>
+              <div className="pt-4 flex items-baseline gap-2">
+                <span className="font-display-lg text-4xl sm:text-6xl font-bold text-on-surface font-mono-data">
+                  $15.000
+                </span>
+                <span className="font-title-sm text-base text-on-surface-variant font-semibold">
+                  ARS / mes
+                </span>
               </div>
-              <div className="space-y-4">
-                <h3 className="font-title-sm text-xl font-bold text-primary">Plan Pro Taller</h3>
-                <p className="font-body-sm text-xs text-on-surface-variant">Para talleres consolidados con varios técnicos.</p>
-                <div className="font-display-lg text-4xl font-bold text-on-surface font-mono-data">
-                  $35 <span className="text-xs font-sans text-on-surface-variant font-normal">/mes</span>
-                </div>
-                <ul className="space-y-3 text-xs text-on-surface-variant pt-4 border-t border-outline-variant/50">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> 1 Sucursal</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Hasta 10 Técnicos (RBAC)</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> WhatsApp Directo con Plantillas</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Presupuestador de Repuestos</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Historial Completo por DNI</li>
-                </ul>
-              </div>
-              <Link
-                href="/register"
-                className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3 rounded-xl transition-all text-center block shadow-lg"
-              >
-                Probar Gratis 14 Días
-              </Link>
             </div>
 
-            <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-8 flex flex-col justify-between space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-title-sm text-xl font-bold text-on-surface">Multi-Sucursal</h3>
-                <p className="font-body-sm text-xs text-on-surface-variant">Redes de servicio técnico con múltiples ubicaciones.</p>
-                <div className="font-display-lg text-4xl font-bold text-on-surface font-mono-data">
-                  $75 <span className="text-xs font-sans text-on-surface-variant font-normal">/mes</span>
+            {/* Lista de Funcionalidades Incluidas */}
+            <div className="space-y-4">
+              <p className="font-label-caps text-xs text-primary uppercase font-bold tracking-wider">
+                Todo lo que incluye tu suscripción:
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-on-surface">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">Órdenes de servicio ilimitadas</span>
                 </div>
-                <ul className="space-y-3 text-xs text-on-surface-variant pt-4 border-t border-outline-variant/50">
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Múltiples Sucursales</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Usuarios & Técnicos Ilimitados</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Dominio Personalizado</li>
-                  <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Soporte VIP 24/7</li>
-                </ul>
+
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">Gestión de inventario y repuestos</span>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">Rubros y campos 100% personalizables</span>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">Seguimiento público por DNI</span>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">Tickets térmicos de 80mm con QR</span>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">WhatsApp con plantillas directas</span>
+                </div>
               </div>
+            </div>
+
+            <div className="pt-4">
               <Link
                 href="/register"
-                className="w-full bg-surface-container-high border border-outline-variant text-on-surface hover:bg-surface-container-highest font-title-sm text-sm font-bold py-3 rounded-xl transition-colors text-center block"
+                className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-base font-bold py-4 rounded-2xl transition-all text-center block shadow-lg shadow-primary/30 flex items-center justify-center gap-2"
               >
-                Contactar Ventas
+                Comenzar Prueba Gratuita de 14 Días <Zap className="w-5 h-5" />
               </Link>
+              <p className="text-center font-body-sm text-xs text-on-surface-variant mt-3">
+                Sin tarjeta de crédito requerida • Cancela cuando quieras
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. TESTIMONIOS */}
-      <section id="testimonios" className="py-24 px-6 bg-background">
-        <div className="max-w-7xl mx-auto space-y-16">
-          <div className="text-center max-w-3xl mx-auto space-y-3">
-            <h2 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface">
-              Confían en Nosotros Más de 400 Talleres
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-6 space-y-4">
-              <div className="flex text-amber-400 gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400" />
-                ))}
-              </div>
-              <p className="font-body-sm text-sm text-on-surface-variant italic">
-                "El seguimiento por DNI nos redujo un 80% las llamadas de clientes preguntando por su equipo. Además la plantilla de WhatsApp es fantástica."
-              </p>
-              <div>
-                <p className="font-title-sm text-sm font-bold text-on-surface">Matías Fernández</p>
-                <p className="font-label-caps text-xs text-primary">Dueño de Electrónica Sur</p>
-              </div>
-            </div>
-
-            <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-6 space-y-4">
-              <div className="flex text-amber-400 gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400" />
-                ))}
-              </div>
-              <p className="font-body-sm text-sm text-on-surface-variant italic">
-                "Poder configurar campos dinámicos para laptops y luego otros para drones nos permitió unificar todo el taller en un solo sistema."
-              </p>
-              <div>
-                <p className="font-title-sm text-sm font-bold text-on-surface">Gonzalo Rossi</p>
-                <p className="font-label-caps text-xs text-primary">Tech Repair Argentina</p>
-              </div>
-            </div>
-
-            <div className="bg-surface-container border border-outline-variant/60 rounded-2xl p-6 space-y-4">
-              <div className="flex text-amber-400 gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 fill-amber-400" />
-                ))}
-              </div>
-              <p className="font-body-sm text-sm text-on-surface-variant italic">
-                "El bloqueo de finanzas para los técnicos es exactamente lo que necesitábamos para mantener la privacidad de costos de compra."
-              </p>
-              <div>
-                <p className="font-title-sm text-sm font-bold text-on-surface">Lucía Mendoza</p>
-                <p className="font-label-caps text-xs text-primary">Gerente en AutoCheck ECU</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. FOOTER */}
+      {/* 6. FOOTER */}
       <footer className="bg-surface-container-high border-t border-outline-variant py-12 px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-on-surface-variant">
           <Logo size={32} />
