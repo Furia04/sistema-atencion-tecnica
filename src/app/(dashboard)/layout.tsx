@@ -55,24 +55,29 @@ export default function DashboardLayout({
         (s) => (s.owner_email && s.owner_email.toLowerCase() === profileEmail) || s.id === profile?.shop_id
       ) || shops[0];
 
-      // 2. Verificar sobreescritura directa en localStorage si existe
+      // 2. LECTURA INDESTRUCTIBLE DEL ESTADO DESDE LOCALSTORAGE
       if (typeof window !== 'undefined' && profileEmail) {
         try {
-          const overridesStr = localStorage.getItem('prorepair_shop_overrides');
-          if (overridesStr) {
-            const overrides: Record<string, { subscription_status: any; active: boolean }> = JSON.parse(overridesStr);
-            const overrideData = overrides[profileEmail] || (currentShop ? overrides[currentShop.id] : null);
+          const rawEmailStatus = localStorage.getItem(`prorepair_shop_status_${profileEmail}`);
+          const rawIdStatus = currentShop ? localStorage.getItem(`prorepair_shop_status_${currentShop.id}`) : null;
 
-            if (overrideData && currentShop) {
-              currentShop = {
-                ...currentShop,
-                subscription_status: overrideData.subscription_status,
-                active: overrideData.active,
-              };
-            }
+          const activePayloadStr = rawEmailStatus || rawIdStatus;
+          if (activePayloadStr) {
+            const parsed = JSON.parse(activePayloadStr);
+            currentShop = {
+              ...(currentShop || {
+                id: `shop-${profileEmail}`,
+                name: `Taller (${profileEmail})`,
+                owner_email: profileEmail,
+                plan_price: 15000,
+                created_at: new Date().toISOString(),
+              }),
+              active: parsed.active,
+              subscription_status: parsed.subscription_status || (parsed.active ? 'active' : 'canceled'),
+            };
           }
         } catch (e) {
-          console.warn('Error al verificar overrides locales');
+          console.warn('Error al leer clave directa de estado');
         }
       }
 
@@ -111,14 +116,12 @@ export default function DashboardLayout({
   };
 
   // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER:
-  // 1. Taller Suspendido / Dado de baja por el Administrador (active === false o subscription_status === 'canceled'/'past_due')
   const isSuspended = userShop
-    ? (!userShop.active || userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due')
+    ? (userShop.active === false || userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due')
     : false;
 
-  // 2. Nuevo Usuario Registrado que Nunca Pagó (subscription_status === 'pending_payment' y no activo)
   const isPendingPayment = userShop
-    ? (userShop.subscription_status === 'pending_payment' && !userShop.active)
+    ? (userShop.subscription_status === 'pending_payment' && userShop.active === false)
     : false;
 
   return (
