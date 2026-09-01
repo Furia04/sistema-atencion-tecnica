@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Search, Bell, HelpCircle, Menu, LogOut, User } from 'lucide-react';
+import { Search, Menu, LogOut } from 'lucide-react';
 import { UserProfile } from '@/types';
 
 interface HeaderProps {
@@ -36,23 +36,6 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
 
       {/* Acciones del Header */}
       <div className="flex items-center gap-3">
-        <button
-          className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all p-2 rounded-full relative"
-          title="Notificaciones"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error border border-surface" />
-        </button>
-
-        <button
-          className="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all p-2 rounded-full"
-          title="Ayuda y Soporte"
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
-
-        <div className="h-4 w-px bg-outline-variant/60 mx-1" />
-
         {/* Enlace Salir / Iniciar Sesión */}
         <Link
           href="/login"
