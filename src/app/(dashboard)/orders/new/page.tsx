@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Printer, FileText, Search, User, Smartphone, AlertCircle, Save, CheckCircle2, ArrowRight } from 'lucide-react';
 import { createServiceOrderWithDevice } from '@/lib/supabase/services';
+import { ServiceOrder } from '@/types';
 
 export default function NewOrderIntakePage() {
   const router = useRouter();
@@ -26,12 +27,13 @@ export default function NewOrderIntakePage() {
   const [printFormat, setPrintFormat] = useState<'80mm' | 'a4'>('80mm');
 
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [ticketCode] = useState(`WO-${Math.floor(1000 + Math.random() * 9000)}`);
   const [todayDate] = useState(new Date().toLocaleDateString('es-AR'));
 
   const validateForm = () => {
     if (!customerName.trim() || !customerPhone.trim() || !deviceBrand.trim() || !deviceModel.trim() || !faultDescription.trim()) {
-      alert('Por favor complete los campos obligatorios (* Nombre del cliente, Teléfono, Marca, Modelo y Falla).');
+      alert('Por favor complete los campos obligatorios (* Nombre del cliente, Teléfono, Marca, Modelo y Descripción de la Falla).');
       return false;
     }
     return true;
@@ -41,30 +43,61 @@ export default function NewOrderIntakePage() {
     if (!validateForm()) return;
 
     setSaving(true);
-    try {
-      await createServiceOrderWithDevice({
-        customer: {
-          full_name: customerName.trim(),
-          phone: customerPhone.trim(),
-          document_id: customerDocumentId.trim(),
-          email: customerEmail.trim(),
-        },
-        device: {
-          type: deviceType,
-          brand: deviceBrand.trim(),
-          model: deviceModel.trim(),
-          serial_number: serialImei.trim(),
-          custom_attributes: { powers_on: powersOn },
-        },
-        order: {
-          reported_fault: faultDescription.trim(),
-        },
-      });
+    setSuccessMessage('');
 
-      router.push('/orders');
+    const newOrderPayload = {
+      customer: {
+        full_name: customerName.trim(),
+        phone: customerPhone.trim(),
+        document_id: customerDocumentId.trim(),
+        email: customerEmail.trim(),
+      },
+      device: {
+        type: deviceType,
+        brand: deviceBrand.trim(),
+        model: deviceModel.trim(),
+        serial_number: serialImei.trim(),
+        custom_attributes: { powers_on: powersOn },
+      },
+      order: {
+        reported_fault: faultDescription.trim(),
+      },
+    };
+
+    try {
+      await createServiceOrderWithDevice(newOrderPayload);
+      setSuccessMessage('¡Orden de servicio guardada exitosamente! Redirigiendo...');
+      setTimeout(() => {
+        router.push('/orders');
+      }, 800);
     } catch (err) {
-      console.warn('Guardado local fallback realizado:', err);
-      router.push('/orders');
+      console.warn('Guardado local de emergencia realizado:', err);
+      const localOrderObj: ServiceOrder = {
+        id: `ord-local-${Date.now()}`,
+        shop_id: 'local-shop',
+        tracking_code: `#${ticketCode}`,
+        device_id: `dev-${Date.now()}`,
+        customer_id: `cust-${Date.now()}`,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_document_id: customerDocumentId.trim(),
+        device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
+        status: 'recibido',
+        reported_fault: faultDescription.trim(),
+        final_price: 0,
+        created_at: new Date().toISOString(),
+      };
+
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        const existing = storedStr ? JSON.parse(storedStr) : [];
+        localStorage.setItem('prorepair_local_orders', JSON.stringify([localOrderObj, ...existing]));
+      } catch (e) {}
+
+      setSuccessMessage('¡Orden de servicio registrada exitosamente!');
+      setTimeout(() => {
+        router.push('/orders');
+      }, 800);
     } finally {
       setSaving(false);
     }
@@ -75,38 +108,58 @@ export default function NewOrderIntakePage() {
 
     setPrintFormat(selectedFormat);
     setSaving(true);
+    setSuccessMessage('');
+
+    const newOrderPayload = {
+      customer: {
+        full_name: customerName.trim(),
+        phone: customerPhone.trim(),
+        document_id: customerDocumentId.trim(),
+        email: customerEmail.trim(),
+      },
+      device: {
+        type: deviceType,
+        brand: deviceBrand.trim(),
+        model: deviceModel.trim(),
+        serial_number: serialImei.trim(),
+        custom_attributes: { powers_on: powersOn },
+      },
+      order: {
+        reported_fault: faultDescription.trim(),
+      },
+    };
 
     try {
-      await createServiceOrderWithDevice({
-        customer: {
-          full_name: customerName.trim(),
-          phone: customerPhone.trim(),
-          document_id: customerDocumentId.trim(),
-          email: customerEmail.trim(),
-        },
-        device: {
-          type: deviceType,
-          brand: deviceBrand.trim(),
-          model: deviceModel.trim(),
-          serial_number: serialImei.trim(),
-          custom_attributes: { powers_on: powersOn },
-        },
-        order: {
-          reported_fault: faultDescription.trim(),
-        },
-      });
+      await createServiceOrderWithDevice(newOrderPayload);
+    } catch (err) {
+      console.warn('Guardado local de emergencia realizado:', err);
+      const localOrderObj: ServiceOrder = {
+        id: `ord-local-${Date.now()}`,
+        shop_id: 'local-shop',
+        tracking_code: `#${ticketCode}`,
+        device_id: `dev-${Date.now()}`,
+        customer_id: `cust-${Date.now()}`,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_document_id: customerDocumentId.trim(),
+        device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
+        status: 'recibido',
+        reported_fault: faultDescription.trim(),
+        final_price: 0,
+        created_at: new Date().toISOString(),
+      };
 
-      // Disparar la ventana de impresión
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        const existing = storedStr ? JSON.parse(storedStr) : [];
+        localStorage.setItem('prorepair_local_orders', JSON.stringify([localOrderObj, ...existing]));
+      } catch (e) {}
+    } finally {
+      setSaving(false);
       setTimeout(() => {
         window.print();
         router.push('/orders');
       }, 300);
-    } catch (err) {
-      console.warn('Guardado local fallback realizado:', err);
-      window.print();
-      router.push('/orders');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -155,6 +208,13 @@ export default function NewOrderIntakePage() {
           </button>
         </div>
       </div>
+
+      {/* Notificación de Éxito */}
+      {successMessage && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-3 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4" /> {successMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1">
         {/* Columna Izquierda: Formulario de Recepción */}

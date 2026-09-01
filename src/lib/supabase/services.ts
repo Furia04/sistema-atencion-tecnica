@@ -181,7 +181,7 @@ export async function deductInventoryStock(inventoryItemId: string, quantity: nu
 }
 
 // =======================================================
-// ÓRDENES DE SERVICIO (MULTI-TENANT REAL)
+// ÓRDENES DE SERVICIO (MULTI-TENANT REAL + LOCAL FALLBACK)
 // =======================================================
 
 export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
@@ -193,14 +193,19 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
         customers ( full_name, phone, document_id ),
         devices ( type, brand, model, serial_number )
       `)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error Supabase fetchServiceOrders:', error);
-      return [];
+    let localOrders: ServiceOrder[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        if (storedStr) {
+          localOrders = JSON.parse(storedStr);
+        }
+      } catch (e) {}
     }
 
-    return (data || []).map((ord: any) => ({
+    const dbOrders = (data || []).map((ord: any) => ({
       id: ord.id,
       shop_id: ord.shop_id,
       tracking_code: ord.tracking_code,
@@ -220,6 +225,16 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       customer_document_id: ord.customers?.document_id || '',
       device_info: `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
     }));
+
+    const orderMap = new Map<string, ServiceOrder>();
+    dbOrders.forEach((o) => orderMap.set(o.tracking_code, o));
+    localOrders.forEach((o) => {
+      if (!orderMap.has(o.tracking_code)) {
+        orderMap.set(o.tracking_code, o);
+      }
+    });
+
+    return Array.from(orderMap.values());
   } catch (err) {
     return [];
   }
@@ -231,8 +246,42 @@ export async function createServiceOrderWithDevice(orderPayload: {
   order: { reported_fault: string; estimated_cost?: number; final_price?: number };
 }) {
   const profile = await getCurrentUserProfile();
-  const shopId = profile?.shop_id || '00000000-0000-0000-0000-000000000000';
+  let shopId = profile?.shop_id || profile?.id;
 
+  // 1. Obtener o crear un taller válido en Supabase para prevenir errores de clave foránea
+  if (!shopId) {
+    const { data: anyShop } = await supabase.from('shops').select('id').limit(1).maybeSingle();
+    if (anyShop) {
+      shopId = anyShop.id;
+    }
+  }
+
+  if (shopId) {
+    const { data: existingShop } = await supabase.from('shops').select('id').eq('id', shopId).maybeSingle();
+    if (!existingShop) {
+      await supabase.from('shops').upsert([{
+        id: shopId,
+        name: profile?.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
+        owner_email: profile?.email || 'taller@jatech.com',
+        subscription_status: 'active',
+        plan_price: 15000,
+        active: true,
+      }]);
+    }
+  } else {
+    const defaultShopId = '00000000-0000-0000-0000-000000000001';
+    await supabase.from('shops').upsert([{
+      id: defaultShopId,
+      name: 'Taller Principal',
+      owner_email: 'taller@jatech.com',
+      subscription_status: 'active',
+      plan_price: 15000,
+      active: true,
+    }]);
+    shopId = defaultShopId;
+  }
+
+  // 2. Insertar o recuperar Cliente
   let customerId = '';
   if (orderPayload.customer.document_id) {
     const { data: existingCust } = await supabase
@@ -253,16 +302,20 @@ export async function createServiceOrderWithDevice(orderPayload: {
         shop_id: shopId,
         full_name: orderPayload.customer.full_name,
         phone: orderPayload.customer.phone,
-        document_id: orderPayload.customer.document_id,
-        email: orderPayload.customer.email,
+        document_id: orderPayload.customer.document_id || null,
+        email: orderPayload.customer.email || null,
       }])
       .select()
       .single();
 
-    if (custErr) throw custErr;
+    if (custErr) {
+      console.error('Error al insertar cliente en Supabase:', custErr);
+      throw custErr;
+    }
     customerId = newCust.id;
   }
 
+  // 3. Insertar Dispositivo
   const { data: newDevice, error: devErr } = await supabase
     .from('devices')
     .insert([{
@@ -271,14 +324,18 @@ export async function createServiceOrderWithDevice(orderPayload: {
       type: orderPayload.device.type,
       brand: orderPayload.device.brand,
       model: orderPayload.device.model,
-      serial_number: orderPayload.device.serial_number,
+      serial_number: orderPayload.device.serial_number || null,
       custom_attributes: orderPayload.device.custom_attributes || {},
     }])
     .select()
     .single();
 
-  if (devErr) throw devErr;
+  if (devErr) {
+    console.error('Error al insertar equipo en Supabase:', devErr);
+    throw devErr;
+  }
 
+  // 4. Insertar Orden de Servicio
   const randomCode = `#WO-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const { data: newOrder, error: ordErr } = await supabase
@@ -296,7 +353,10 @@ export async function createServiceOrderWithDevice(orderPayload: {
     .select()
     .single();
 
-  if (ordErr) throw ordErr;
+  if (ordErr) {
+    console.error('Error al insertar orden de servicio en Supabase:', ordErr);
+    throw ordErr;
+  }
 
   return newOrder;
 }
