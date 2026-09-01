@@ -1,10 +1,42 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Printer, FileText, Search, User, Smartphone, AlertCircle, Save, CheckCircle2, ArrowRight } from 'lucide-react';
-import { createServiceOrderWithDevice } from '@/lib/supabase/services';
-import { ServiceOrder } from '@/types';
+import { createServiceOrderWithDevice, getCurrentUserProfile } from '@/lib/supabase/services';
+import { supabase } from '@/lib/supabase/client';
+import { CustomFieldDefinition, DeviceCategoryTemplate, ServiceOrder } from '@/types';
+import { CustomFieldsRenderer } from '@/components/orders/custom-fields-renderer';
+
+const DEFAULT_TEMPLATES: DeviceCategoryTemplate[] = [
+  {
+    id: 'tmpl-1',
+    category_name: 'Smartphone',
+    fields: [
+      { id: 'f1', name: 'passcode', label: 'Patrón / Clave de Desbloqueo', type: 'text', required: false, placeholder: 'Ej: 1234' },
+      { id: 'f2', name: 'has_sim', label: 'Trae Tarjeta SIM', type: 'checkbox', required: false },
+      { id: 'f3', name: 'battery_state', label: 'Estado de Batería', type: 'select', required: false, options: ['Buena (Original)', 'Degradada', 'Inflada / Dañada'] },
+    ],
+  },
+  {
+    id: 'tmpl-2',
+    category_name: 'Computadora / Laptop',
+    fields: [
+      { id: 'f4', name: 'charger_included', label: 'Incluye Cargador Original', type: 'checkbox', required: true },
+      { id: 'f5', name: 'ram_size', label: 'Memoria RAM Instalada (GB)', type: 'number', required: false, placeholder: 'Ej: 16' },
+      { id: 'f6', name: 'os_user_pass', label: 'Usuario / Clave de Inicio de Sesión', type: 'text', required: false },
+    ],
+  },
+  {
+    id: 'tmpl-3',
+    category_name: 'Automotor / Placa ECU',
+    fields: [
+      { id: 'f7', name: 'mileage', label: 'Kilometraje Actual del Vehículo', type: 'number', required: true, placeholder: 'Ej: 120000' },
+      { id: 'f8', name: 'license_plate', label: 'Patente / Dominio', type: 'text', required: true, placeholder: 'Ej: AA123BB' },
+      { id: 'f9', name: 'fault_codes', label: 'Códigos DTC de Falla Escáner', type: 'textarea', required: false, placeholder: 'Ej: P0300, P0171' },
+    ],
+  },
+];
 
 export default function NewOrderIntakePage() {
   const router = useRouter();
@@ -23,6 +55,10 @@ export default function NewOrderIntakePage() {
   const [powersOn, setPowersOn] = useState(true);
   const [faultDescription, setFaultDescription] = useState('');
 
+  // Plantillas de Campos Personalizados por Rubro
+  const [categoryTemplates, setCategoryTemplates] = useState<DeviceCategoryTemplate[]>(DEFAULT_TEMPLATES);
+  const [customAttrValues, setCustomAttrValues] = useState<Record<string, any>>({});
+
   // Formato de Impresión: 80mm vs Hoja A4
   const [printFormat, setPrintFormat] = useState<'80mm' | 'a4'>('80mm');
 
@@ -31,11 +67,50 @@ export default function NewOrderIntakePage() {
   const [ticketCode] = useState(`WO-${Math.floor(1000 + Math.random() * 9000)}`);
   const [todayDate] = useState(new Date().toLocaleDateString('es-AR'));
 
+  useEffect(() => {
+    async function loadTemplates() {
+      try {
+        const profile = await getCurrentUserProfile();
+        if (profile) {
+          const targetShopId = profile.shop_id || profile.id;
+          const { data: dbShop } = await supabase
+            .from('shops')
+            .select('settings')
+            .or(`id.eq.${targetShopId},owner_email.eq.${profile.email}`)
+            .maybeSingle();
+
+          if (dbShop?.settings?.templates && Array.isArray(dbShop.settings.templates) && dbShop.settings.templates.length > 0) {
+            setCategoryTemplates(dbShop.settings.templates);
+          }
+        }
+      } catch (e) {
+        console.warn('Plantillas por defecto cargadas');
+      }
+    }
+    loadTemplates();
+  }, []);
+
+  // Obtener los campos dinámicos correspondientes a la categoría seleccionada
+  const activeTemplate = categoryTemplates.find(
+    (t) => t.category_name.toLowerCase() === deviceType.toLowerCase() || deviceType.toLowerCase().includes(t.category_name.toLowerCase())
+  ) || categoryTemplates[0];
+
+  const activeCategoryFields = activeTemplate ? activeTemplate.fields : [];
+
   const validateForm = () => {
     if (!customerName.trim() || !customerPhone.trim() || !deviceBrand.trim() || !deviceModel.trim() || !faultDescription.trim()) {
       alert('Por favor complete los campos obligatorios (* Nombre del cliente, Teléfono, Marca, Modelo y Descripción de la Falla).');
       return false;
     }
+
+    // Validar campos personalizados obligatorios
+    for (const field of activeCategoryFields) {
+      if (field.required && !customAttrValues[field.name]) {
+        alert(`El campo personalizado "${field.label}" es obligatorio para la categoría ${deviceType}.`);
+        return false;
+      }
+    }
+
     return true;
   };
 
@@ -57,7 +132,7 @@ export default function NewOrderIntakePage() {
         brand: deviceBrand.trim(),
         model: deviceModel.trim(),
         serial_number: serialImei.trim(),
-        custom_attributes: { powers_on: powersOn },
+        custom_attributes: { powers_on: powersOn, ...customAttrValues },
       },
       order: {
         reported_fault: faultDescription.trim(),
@@ -122,7 +197,7 @@ export default function NewOrderIntakePage() {
         brand: deviceBrand.trim(),
         model: deviceModel.trim(),
         serial_number: serialImei.trim(),
-        custom_attributes: { powers_on: powersOn },
+        custom_attributes: { powers_on: powersOn, ...customAttrValues },
       },
       order: {
         reported_fault: faultDescription.trim(),
@@ -282,26 +357,28 @@ export default function NewOrderIntakePage() {
                   2
                 </div>
                 <h3 className="font-title-sm text-sm text-on-surface font-bold">
-                  Perfil del Dispositivo
+                  Perfil del Dispositivo & Rubro
                 </h3>
               </div>
 
               <div className="space-y-3 flex-1 text-xs">
                 <div>
                   <label className="block font-bold text-on-surface-variant mb-1 uppercase text-[10px]">
-                    Categoría / Tipo
+                    Categoría / Rubro de Equipo
                   </label>
                   <select
                     value={deviceType}
-                    onChange={(e) => setDeviceType(e.target.value)}
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 font-semibold"
+                    onChange={(e) => {
+                      setDeviceType(e.target.value);
+                      setCustomAttrValues({});
+                    }}
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl px-3 py-2 text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 font-bold"
                   >
-                    <option>Smartphone</option>
-                    <option>Computadora / Laptop</option>
-                    <option>Tablet</option>
-                    <option>Consola de Juegos</option>
-                    <option>Automotor / Placa ECU</option>
-                    <option>Drone / Robótica</option>
+                    {categoryTemplates.map((t) => (
+                      <option key={t.id} value={t.category_name}>
+                        {t.category_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -358,6 +435,17 @@ export default function NewOrderIntakePage() {
                     El equipo enciende al ingresar
                   </label>
                 </div>
+
+                {/* RENDERING DE CAMPOS PERSONALIZADOS DINÁMICOS POR CATEGORÍA */}
+                {activeCategoryFields && activeCategoryFields.length > 0 && (
+                  <div className="pt-2 border-t border-outline-variant/60">
+                    <CustomFieldsRenderer
+                      fields={activeCategoryFields}
+                      values={customAttrValues}
+                      onChange={(key, val) => setCustomAttrValues((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -441,10 +529,21 @@ export default function NewOrderIntakePage() {
 
                   <div className="mb-4 space-y-0.5 text-[11px]">
                     <div className="font-bold uppercase text-[10px] text-slate-700">DISPOSITIVO</div>
-                    <div>Tipo: {deviceType}</div>
+                    <div>Rubro: {deviceType}</div>
                     <div>Equipo: {deviceBrand} {deviceModel}</div>
                     <div>SN/IMEI: {serialImei || 'N/A'}</div>
                     <div>Enciende: {powersOn ? 'SÍ' : 'NO'}</div>
+
+                    {/* Mapeo de Campos Personalizados en Ticket 80mm */}
+                    {Object.keys(customAttrValues).length > 0 && (
+                      <div className="pt-1 mt-1 border-t border-slate-300">
+                        {Object.entries(customAttrValues).map(([k, v]) => (
+                          <div key={k} className="text-[10px]">
+                            <strong className="uppercase">{k}:</strong> {String(v)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-6 border-b-2 border-black border-dashed pb-4 text-[11px]">
@@ -481,8 +580,17 @@ export default function NewOrderIntakePage() {
                     <div>
                       <span className="font-bold text-slate-700 uppercase block text-[9px]">DISPOSITIVO</span>
                       <p className="font-bold text-xs">{deviceBrand} {deviceModel || '------------------'}</p>
-                      <p>Tipo: {deviceType}</p>
+                      <p>Rubro: {deviceType}</p>
                       <p>IMEI/SN: {serialImei || 'N/A'}</p>
+                      {Object.keys(customAttrValues).length > 0 && (
+                        <div className="pt-1 text-[10px] text-slate-600 border-t border-slate-200 mt-1">
+                          {Object.entries(customAttrValues).map(([k, v]) => (
+                            <div key={k}>
+                              <strong className="uppercase">{k}:</strong> {String(v)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 
