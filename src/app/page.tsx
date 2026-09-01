@@ -443,7 +443,7 @@ export default function LandingPage() {
 
           <div className="flex gap-6">
             <Link href="/terms" className="hover:text-primary transition-colors">Términos de Servicio</Link>
-            <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
+            <Link href="/privacy" className="hover:text-primary transition-colors">Privacidad</Link>
             <a href="#" className="hover:text-primary transition-colors">Soporte</a>
           </div>
         </div>
