@@ -34,6 +34,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS shops (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
+  slug TEXT,
   owner_email TEXT,
   subscription_status TEXT DEFAULT 'pending_payment',
   plan_price NUMERIC(10,2) DEFAULT 15000.00,
@@ -43,7 +44,9 @@ CREATE TABLE IF NOT EXISTS shops (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ASEGURAR COLUMNAS EN CASO DE QUE LA TABLA YA EXISTIERA PREVIAMENTE
+-- ASEGURAR COMPATIBILIDAD DE COLUMNAS EN LA TABLA SHOPS
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS slug TEXT;
+ALTER TABLE public.shops ALTER COLUMN slug DROP NOT NULL;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS owner_email TEXT;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'pending_payment';
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS plan_price NUMERIC(10,2) DEFAULT 15000.00;
@@ -169,15 +172,18 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_shop_name TEXT;
   v_full_name TEXT;
+  v_slug TEXT;
 BEGIN
   v_shop_name := COALESCE(NEW.raw_user_meta_data->>'shop_name', 'Taller de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email));
   v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email);
+  v_slug := LOWER(REGEXP_REPLACE(v_shop_name, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || SUBSTRING(NEW.id::text, 1, 8);
   
   -- 1. Insertar automáticamente en public.shops
-  INSERT INTO public.shops (id, name, owner_email, subscription_status, plan_price, active)
+  INSERT INTO public.shops (id, name, slug, owner_email, subscription_status, plan_price, active)
   VALUES (
     NEW.id,
     v_shop_name,
+    v_slug,
     NEW.email,
     'pending_payment',
     15000.00,
@@ -185,6 +191,7 @@ BEGIN
   )
   ON CONFLICT (id) DO UPDATE
     SET name = EXCLUDED.name,
+        slug = COALESCE(public.shops.slug, EXCLUDED.slug),
         owner_email = EXCLUDED.owner_email;
 
   -- 2. Insertar automáticamente en public.users
@@ -215,10 +222,11 @@ CREATE TRIGGER on_auth_user_created
 -- 12. SINCRONIZACIÓN DE USUARIOS PREVIOS DE AUTH A SHOPS
 -- =======================================================
 
-INSERT INTO public.shops (id, name, owner_email, subscription_status, plan_price, active)
+INSERT INTO public.shops (id, name, slug, owner_email, subscription_status, plan_price, active)
 SELECT 
   id,
   COALESCE(raw_user_meta_data->>'shop_name', 'Taller de ' || COALESCE(raw_user_meta_data->>'full_name', email)),
+  LOWER(REGEXP_REPLACE(COALESCE(raw_user_meta_data->>'shop_name', email), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || SUBSTRING(id::text, 1, 8),
   email,
   'pending_payment',
   15000.00,
