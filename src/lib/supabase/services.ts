@@ -39,7 +39,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
 
 export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
   try {
-    // 1. Consultar talleres reales registrados en la tabla 'shops' de Supabase
     const { data: dbShops, error: shopsError } = await supabase
       .from('shops')
       .select('*')
@@ -49,7 +48,6 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
       console.error('Error al consultar tabla shops en Supabase:', shopsError);
     }
 
-    // 2. Consultar usuarios en 'users' para asegurar que todo usuario registrado tenga su taller listado
     const { data: dbUsers, error: usersError } = await supabase
       .from('users')
       .select('*');
@@ -58,7 +56,6 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
       console.warn('Error al consultar tabla users en Supabase:', usersError);
     }
 
-    // 3. Consultar órdenes para contar el total real de órdenes por taller
     const { data: ordersData } = await supabase
       .from('service_orders')
       .select('shop_id');
@@ -74,10 +71,8 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
 
     const shopMap = new Map<string, Shop>();
 
-    // Mapear talleres de la base de datos
     if (dbShops && dbShops.length > 0) {
       dbShops.forEach((s: any) => {
-        const emailLower = (s.owner_email || '').toLowerCase();
         shopMap.set(s.id, {
           id: s.id,
           name: s.name || 'Taller sin nombre',
@@ -91,13 +86,11 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
       });
     }
 
-    // Incluir usuarios que estén en 'users' si su taller no estuviera creado en 'shops'
     if (dbUsers && dbUsers.length > 0) {
       dbUsers.forEach((u: any) => {
         const userEmail = (u.email || '').toLowerCase();
         const targetShopId = u.shop_id || u.id;
 
-        // Comprobar si ya existe por ID o por correo
         const alreadyExists = shopMap.has(targetShopId) || Array.from(shopMap.values()).some(s => s.owner_email.toLowerCase() === userEmail);
 
         if (!alreadyExists && userEmail) {
@@ -138,8 +131,6 @@ export async function updateShopSubscriptionStatus(
       .eq('id', shopId);
 
     if (error) {
-      console.warn('No se pudo actualizar directamente en shops, intentando upsert:', error);
-      // Si el taller vino desde 'users', crearlo en 'shops'
       const { data: userProfile } = await supabase
         .from('users')
         .select('*')
@@ -162,6 +153,30 @@ export async function updateShopSubscriptionStatus(
   } catch (err) {
     console.error('Error al actualizar estado en Supabase:', err);
     return false;
+  }
+}
+
+// =======================================================
+// DESCUENTO AUTOMÁTICO DE STOCK DE INVENTARIO
+// =======================================================
+
+export async function deductInventoryStock(inventoryItemId: string, quantity: number = 1) {
+  try {
+    const { data: item } = await supabase
+      .from('inventory')
+      .select('stock')
+      .eq('id', inventoryItemId)
+      .maybeSingle();
+
+    if (item) {
+      const newStock = Math.max(0, (item.stock || 0) - quantity);
+      await supabase
+        .from('inventory')
+        .update({ stock: newStock })
+        .eq('id', inventoryItemId);
+    }
+  } catch (err) {
+    console.warn('Error al descontar stock de inventario:', err);
   }
 }
 
