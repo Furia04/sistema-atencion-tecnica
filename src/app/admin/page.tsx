@@ -24,9 +24,11 @@ import {
   Plus,
   X,
   Save,
+  Store,
 } from 'lucide-react';
 import { Shop } from '@/types';
 import { fetchAllShopsForAdmin, updateShopSubscriptionStatus } from '@/lib/supabase/services';
+import { supabase } from '@/lib/supabase/client';
 
 export default function SuperAdminDashboardPage() {
   const router = useRouter();
@@ -35,11 +37,13 @@ export default function SuperAdminDashboardPage() {
   const [authorized, setAuthorized] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedShopId, setCopiedShopId] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Modal para agregar taller manualmente desde el Admin
+  // Modal para agregar taller manualmente desde el Admin directamente a Supabase
   const [showAddModal, setShowAddModal] = useState(false);
   const [newShopName, setNewShopName] = useState('');
   const [newOwnerEmail, setNewOwnerEmail] = useState('');
+  const [modalLoading, setModalLoading] = useState(false);
 
   const loadShops = async () => {
     setLoading(true);
@@ -47,9 +51,10 @@ export default function SuperAdminDashboardPage() {
       const realShops = await fetchAllShopsForAdmin();
       setShops(realShops || []);
     } catch (err) {
-      console.error('Error al cargar talleres:', err);
+      console.error('Error al cargar talleres reales de Supabase:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -63,20 +68,6 @@ export default function SuperAdminDashboardPage() {
     }
 
     loadShops();
-
-    const handleShopUpdate = () => {
-      loadShops();
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('prorepair_shop_updated', handleShopUpdate);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('prorepair_shop_updated', handleShopUpdate);
-      }
-    };
   }, [router]);
 
   const handleAdminLogout = () => {
@@ -87,74 +78,65 @@ export default function SuperAdminDashboardPage() {
   };
 
   const handleToggleActiveStatus = async (shop: Shop) => {
+    setActionLoadingId(shop.id);
     const newActive = !shop.active;
     const newStatus = newActive ? 'active' : 'canceled';
 
     try {
       await updateShopSubscriptionStatus(shop.id, newStatus, newActive);
+      await loadShops();
     } catch (err) {
-      console.warn('Actualización local realizada');
+      console.error('Error al actualizar estado en Supabase:', err);
+    } finally {
+      setActionLoadingId(null);
     }
-
-    setShops((prev) =>
-      prev.map((s) =>
-        s.id === shop.id
-          ? { ...s, active: newActive, subscription_status: newStatus }
-          : s
-      )
-    );
   };
 
   const handleMarkAsPaid = async (shop: Shop) => {
+    setActionLoadingId(shop.id);
     try {
       await updateShopSubscriptionStatus(shop.id, 'active', true);
+      await loadShops();
     } catch (err) {
-      console.warn('Actualización local realizada');
+      console.error('Error al marcar pagado en Supabase:', err);
+    } finally {
+      setActionLoadingId(null);
     }
-
-    setShops((prev) =>
-      prev.map((s) =>
-        s.id === shop.id
-          ? { ...s, active: true, subscription_status: 'active' }
-          : s
-      )
-    );
   };
 
   const handleManualAddShop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newShopName.trim() || !newOwnerEmail.trim()) return;
 
-    const manualShopId = `shop-${Date.now()}`;
-    const newShopObj: Shop = {
-      id: manualShopId,
-      name: newShopName.trim(),
-      owner_email: newOwnerEmail.trim().toLowerCase(),
-      subscription_status: 'active',
-      plan_price: 15000,
-      active: true,
-      created_at: new Date().toISOString(),
-      orders_count: 0,
-    };
+    setModalLoading(true);
+    const cleanEmail = newOwnerEmail.trim().toLowerCase();
+    const cleanName = newShopName.trim();
 
-    if (typeof window !== 'undefined') {
-      try {
-        const storedStr = localStorage.getItem('prorepair_registered_shops');
-        const existingShops: Shop[] = storedStr ? JSON.parse(storedStr) : [];
-        const filtered = existingShops.filter((s) => s.owner_email.toLowerCase() !== newOwnerEmail.trim().toLowerCase());
-        localStorage.setItem('prorepair_registered_shops', JSON.stringify([newShopObj, ...filtered]));
+    try {
+      // Inserción real en la tabla 'shops' de Supabase
+      const { error } = await supabase
+        .from('shops')
+        .insert([{
+          name: cleanName,
+          owner_email: cleanEmail,
+          subscription_status: 'active',
+          plan_price: 15000,
+          active: true,
+        }]);
 
-        // Guardar override permanente de activacion
-        await updateShopSubscriptionStatus(manualShopId, 'active', true);
-      } catch (err) {
-        console.warn('Error al agregar taller manualmente');
+      if (error) {
+        console.error('Error al insertar taller en Supabase:', error);
       }
-    }
 
-    setShops((prev) => [newShopObj, ...prev]);
-    setNewShopName('');
-    setNewOwnerEmail('');
-    setShowAddModal(false);
+      await loadShops();
+      setNewShopName('');
+      setNewOwnerEmail('');
+      setShowAddModal(false);
+    } catch (err) {
+      console.error('Error:', err);
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   if (!authorized) {
@@ -178,7 +160,7 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col">
-      {/* HEADER SUPER ADMIN CON BANDERAS DE ACCIÓN */}
+      {/* HEADER SUPER ADMIN */}
       <header className="bg-surface-container border-b border-outline-variant px-6 h-20 flex items-center justify-between sticky top-0 z-20 shadow-md">
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -200,9 +182,9 @@ export default function SuperAdminDashboardPage() {
           <button
             onClick={loadShops}
             className="p-2 bg-surface-bright text-on-surface hover:bg-surface-container-highest rounded-xl border border-outline-variant transition-colors"
-            title="Recargar Lista de Talleres"
+            title="Recargar Lista de Talleres de Supabase"
           >
-            <RefreshCw className="w-4 h-4 text-primary" />
+            <RefreshCw className={`w-4 h-4 text-primary ${loading ? 'animate-spin' : ''}`} />
           </button>
 
           <button
@@ -221,7 +203,7 @@ export default function SuperAdminDashboardPage() {
             Control Global de Talleres y Suscripciones
           </h1>
           <p className="font-body-md text-xs sm:text-sm text-on-surface-variant mt-1">
-            Gestiona la activación, estado de pagos y bloqueo de acceso para cada taller registrado en ProRepair Ops.
+            Datos reales obtenidos en tiempo real de tu base de datos Supabase.
           </p>
         </div>
 
@@ -229,12 +211,12 @@ export default function SuperAdminDashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-2">
             <span className="font-label-caps text-xs text-on-surface-variant uppercase font-semibold">
-              TOTAL TALLERES
+              TOTAL TALLERES EN SUPABASE
             </span>
             <div className="font-display-lg text-3xl font-bold text-on-surface font-mono-data">
               {totalShops}
             </div>
-            <span className="text-[11px] text-on-surface-variant">Registrados en la plataforma</span>
+            <span className="text-[11px] text-on-surface-variant">Talleres en la base de datos</span>
           </div>
 
           <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-2">
@@ -244,27 +226,27 @@ export default function SuperAdminDashboardPage() {
             <div className="font-display-lg text-3xl font-bold text-emerald-400 font-mono-data">
               {activeShops}
             </div>
-            <span className="text-[11px] text-on-surface-variant">Acceso total concedido</span>
+            <span className="text-[11px] text-on-surface-variant">Acceso habilitado al taller</span>
           </div>
 
           <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-2">
             <span className="font-label-caps text-xs text-amber-400 uppercase font-semibold">
-              PENDIENTES DE PAGO
+              PENDIENTES DE PAGO / SUSPENDIDOS
             </span>
             <div className="font-display-lg text-3xl font-bold text-amber-400 font-mono-data">
               {pendingShops}
             </div>
-            <span className="text-[11px] text-on-surface-variant">En pasarela checkout o suspendidos</span>
+            <span className="text-[11px] text-on-surface-variant">Acceso bloqueado en pasarela</span>
           </div>
 
           <div className="bg-surface-container border border-outline-variant rounded-2xl p-5 space-y-2">
             <span className="font-label-caps text-xs text-primary uppercase font-semibold">
-              INGRESOS MENSUALES (MRR)
+              INGRESOS MENSUALES ESTIMADOS
             </span>
             <div className="font-display-lg text-3xl font-bold text-primary font-mono-data">
               ${estimatedMonthlySaaSRevenue.toLocaleString('es-AR')}
             </div>
-            <span className="text-[11px] text-on-surface-variant">ARS acumulado estimado ($15.000/taller)</span>
+            <span className="text-[11px] text-on-surface-variant">Calculado sobre talleres activos reales</span>
           </div>
         </div>
 
@@ -272,7 +254,7 @@ export default function SuperAdminDashboardPage() {
         <div className="bg-surface-container border border-outline-variant rounded-2xl overflow-hidden shadow-xl space-y-4">
           <div className="p-5 border-b border-outline-variant bg-surface-container-high flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 className="font-title-sm text-lg font-bold text-on-surface flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-primary" /> Lista de Talleres Clientes ({shops.length})
+              <Building2 className="w-5 h-5 text-primary" /> Talleres Registrados en Supabase ({shops.length})
             </h2>
 
             <div className="relative w-full sm:w-72">
@@ -290,7 +272,31 @@ export default function SuperAdminDashboardPage() {
           {loading ? (
             <div className="p-16 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="text-xs">Cargando talleres del sistema...</p>
+              <p className="text-xs">Consultando base de datos Supabase...</p>
+            </div>
+          ) : filteredShops.length === 0 ? (
+            <div className="p-16 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-surface-container-high flex items-center justify-center mx-auto text-on-surface-variant border border-outline-variant/50">
+                <Store className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-title-sm text-base font-bold text-on-surface">
+                  No hay talleres registrados en la base de datos
+                </h3>
+                <p className="text-xs text-on-surface-variant max-w-sm mx-auto">
+                  {searchQuery
+                    ? 'No se encontraron resultados para tu búsqueda.'
+                    : 'Aún no se han registrado talleres en tu base de datos Supabase.'}
+                </p>
+              </div>
+              {!searchQuery && (
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-primary text-on-primary font-title-sm text-xs font-bold px-4 py-2 rounded-xl inline-flex items-center gap-2 shadow"
+                >
+                  <Plus className="w-4 h-4" /> Crear Primer Taller
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -300,7 +306,7 @@ export default function SuperAdminDashboardPage() {
                     <th className="p-4">Taller / Negocio</th>
                     <th className="p-4">Email Dueño</th>
                     <th className="p-4">Fecha Registro</th>
-                    <th className="p-4">Órdenes Generadas</th>
+                    <th className="p-4 text-center">Órdenes Generadas</th>
                     <th className="p-4">Estado Suscripción</th>
                     <th className="p-4 text-center">Acceso Plataforma</th>
                     <th className="p-4 text-right">Acciones de Admin</th>
@@ -320,7 +326,7 @@ export default function SuperAdminDashboardPage() {
                         {shop.orders_count ?? 0}
                       </td>
                       <td className="p-4">
-                        {shop.subscription_status === 'active' ? (
+                        {shop.subscription_status === 'active' && shop.active ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold uppercase text-[10px]">
                             <CheckCircle2 className="w-3 h-3" /> Pagado ($15.000)
                           </span>
@@ -332,14 +338,17 @@ export default function SuperAdminDashboardPage() {
                       </td>
                       <td className="p-4 text-center">
                         <button
+                          disabled={actionLoadingId === shop.id}
                           onClick={() => handleToggleActiveStatus(shop)}
-                          className={`px-3 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 mx-auto text-[11px] ${
+                          className={`px-3 py-1 rounded-lg font-bold transition-colors flex items-center gap-1 mx-auto text-[11px] disabled:opacity-50 ${
                             shop.active
                               ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
                               : 'bg-error/20 text-error border border-error/30 hover:bg-error/30'
                           }`}
                         >
-                          {shop.active ? (
+                          {actionLoadingId === shop.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : shop.active ? (
                             <>
                               <Unlock className="w-3.5 h-3.5" /> Habilitado
                             </>
@@ -353,17 +362,19 @@ export default function SuperAdminDashboardPage() {
                       <td className="p-4 text-right space-x-2">
                         {!shop.active || shop.subscription_status !== 'active' ? (
                           <button
+                            disabled={actionLoadingId === shop.id}
                             onClick={() => handleMarkAsPaid(shop)}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded-lg text-[11px] shadow-sm transition-colors"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1 rounded-lg text-[11px] shadow-sm transition-colors disabled:opacity-50"
                           >
-                            ✓ Aprobar Pago & Activar
+                            {actionLoadingId === shop.id ? 'Guardando...' : '✓ Aprobar Pago & Activar'}
                           </button>
                         ) : (
                           <button
+                            disabled={actionLoadingId === shop.id}
                             onClick={() => handleToggleActiveStatus(shop)}
-                            className="bg-error/20 hover:bg-error/30 text-error font-bold px-3 py-1 rounded-lg text-[11px] transition-colors"
+                            className="bg-error/20 hover:bg-error/30 text-error font-bold px-3 py-1 rounded-lg text-[11px] transition-colors disabled:opacity-50"
                           >
-                            Suspender Taller
+                            {actionLoadingId === shop.id ? 'Guardando...' : 'Suspender Taller'}
                           </button>
                         )}
 
@@ -393,7 +404,7 @@ export default function SuperAdminDashboardPage() {
         </div>
       </main>
 
-      {/* MODAL DE ALTA MANUAL DE TALLER DESDE ADMIN */}
+      {/* MODAL DE ALTA MANUAL DE TALLER DIRECTAMENTE A SUPABASE */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form
@@ -402,7 +413,7 @@ export default function SuperAdminDashboardPage() {
           >
             <div className="flex justify-between items-center border-b border-outline-variant/60 pb-3">
               <h3 className="font-title-sm text-base font-bold text-primary flex items-center gap-2">
-                <Plus className="w-5 h-5" /> Alta Manual de Taller
+                <Plus className="w-5 h-5" /> Alta Manual de Taller en Supabase
               </h3>
               <button type="button" onClick={() => setShowAddModal(false)}>
                 <X className="w-5 h-5 text-on-surface-variant" />
@@ -442,16 +453,19 @@ export default function SuperAdminDashboardPage() {
             <div className="flex justify-end gap-3 pt-2">
               <button
                 type="button"
+                disabled={modalLoading}
                 onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 text-xs font-title-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg"
+                className="px-4 py-2 text-xs font-title-sm text-on-surface-variant hover:bg-surface-container-highest rounded-lg disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="bg-primary text-on-primary font-title-sm text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 shadow"
+                disabled={modalLoading}
+                className="bg-primary text-on-primary font-title-sm text-xs font-bold px-5 py-2 rounded-lg flex items-center gap-1.5 shadow disabled:opacity-50"
               >
-                <Save className="w-4 h-4" /> Dar de Alta & Activar Taller
+                {modalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {modalLoading ? 'Guardando en Supabase...' : 'Guardar en Supabase'}
               </button>
             </div>
           </form>

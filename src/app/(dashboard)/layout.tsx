@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { Header } from '@/components/dashboard/header';
 import { Shop, UserProfile } from '@/types';
-import { getCurrentUserProfile, fetchAllShopsForAdmin, forceUnlockShopByEmail } from '@/lib/supabase/services';
+import { getCurrentUserProfile } from '@/lib/supabase/services';
+import { supabase } from '@/lib/supabase/client';
 import {
   Lock,
   AlertTriangle,
@@ -16,17 +17,8 @@ import {
   MessageSquare,
   Zap,
   Loader2,
-  Unlock,
+  RefreshCw,
 } from 'lucide-react';
-
-const MOCK_DEFAULT_USER: UserProfile = {
-  id: 'user-001',
-  email: 'admin@prorepair.com',
-  full_name: 'Carlos Dueño',
-  role: 'owner',
-  shop_id: 'shop-north-station',
-  can_view_financials: true,
-};
 
 export default function DashboardLayout({
   children,
@@ -34,7 +26,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userProfile, setUserProfile] = useState<UserProfile>(MOCK_DEFAULT_USER);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userShop, setUserShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedAlias, setCopiedAlias] = useState(false);
@@ -45,98 +37,82 @@ export default function DashboardLayout({
       const profile = await getCurrentUserProfile();
       if (profile) {
         setUserProfile(profile);
-      }
 
-      const shops = await fetchAllShopsForAdmin();
-      const profileEmail = (profile?.email || 'admin@prorepair.com').toLowerCase();
+        const shopId = profile.shop_id || profile.id;
+        const cleanEmail = (profile.email || '').toLowerCase();
 
-      // 1. Buscar taller correspondiente por email o ID
-      let currentShop = shops.find(
-        (s) => (s.owner_email && s.owner_email.toLowerCase() === profileEmail) || s.id === profile?.shop_id
-      ) || shops[0];
+        // Consultar taller real desde la base de datos Supabase
+        const { data: dbShop } = await supabase
+          .from('shops')
+          .select('*')
+          .or(`id.eq.${shopId},owner_email.eq.${cleanEmail}`)
+          .maybeSingle();
 
-      // 2. LECTURA INDESTRUCTIBLE DEL ESTADO DESDE LOCALSTORAGE
-      if (typeof window !== 'undefined' && profileEmail) {
-        try {
-          const rawEmailStatus = localStorage.getItem(`prorepair_shop_status_${profileEmail}`);
-          const rawIdStatus = currentShop ? localStorage.getItem(`prorepair_shop_status_${currentShop.id}`) : null;
-
-          const activePayloadStr = rawEmailStatus || rawIdStatus;
-          if (activePayloadStr) {
-            const parsed = JSON.parse(activePayloadStr);
-            currentShop = {
-              ...(currentShop || {
-                id: `shop-${profileEmail}`,
-                name: `Taller (${profileEmail})`,
-                owner_email: profileEmail,
-                plan_price: 15000,
-                created_at: new Date().toISOString(),
-              }),
-              active: parsed.active,
-              subscription_status: parsed.subscription_status || (parsed.active ? 'active' : 'canceled'),
-            };
-          }
-        } catch (e) {
-          console.warn('Error al leer clave directa de estado');
+        if (dbShop) {
+          setUserShop({
+            id: dbShop.id,
+            name: dbShop.name || 'Mi Taller',
+            owner_email: dbShop.owner_email || profile.email,
+            subscription_status: dbShop.subscription_status || 'pending_payment',
+            plan_price: Number(dbShop.plan_price) || 15000,
+            active: dbShop.active ?? false,
+            created_at: dbShop.created_at || new Date().toISOString(),
+          });
+        } else {
+          // Si el taller no existe en la tabla shops de Supabase aún
+          setUserShop({
+            id: shopId,
+            name: profile.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
+            owner_email: profile.email,
+            subscription_status: 'pending_payment',
+            plan_price: 15000,
+            active: false,
+            created_at: new Date().toISOString(),
+          });
         }
       }
-
-      if (currentShop) {
-        setUserShop(currentShop);
-      }
     } catch (err) {
-      console.warn('Cargado perfil con mock fallback');
+      console.error('Error al verificar estado de taller en Supabase:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     loadUserAndShopStatus();
-
-    const handleShopUpdate = () => {
-      loadUserAndShopStatus();
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('prorepair_shop_updated', handleShopUpdate);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('prorepair_shop_updated', handleShopUpdate);
-      }
-    };
   }, []);
 
-  const handleForceReactivate = () => {
-    if (userProfile?.email) {
-      forceUnlockShopByEmail(userProfile.email);
-    }
-    loadUserAndShopStatus();
-  };
-
-  // EVALUACIÓN ESTRICTA DEL ESTADO DEL TALLER:
+  // EVALUACIÓN 100% REAL DEL ESTADO DEL TALLER EN SUPABASE:
   const isSuspended = userShop
-    ? (userShop.active === false || userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due')
+    ? (userShop.active === false && (userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due'))
     : false;
 
   const isPendingPayment = userShop
-    ? (userShop.subscription_status === 'pending_payment' && userShop.active === false)
+    ? (userShop.active === false && userShop.subscription_status === 'pending_payment')
     : false;
+
+  const defaultUserFallback: UserProfile = userProfile || {
+    id: 'user-guest',
+    email: '',
+    role: 'owner',
+    full_name: 'Usuario',
+    shop_id: '',
+    can_view_financials: true,
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface font-sans">
-      {/* Sidebar Desplegable / Drawer */}
+      {/* Sidebar Desplegable */}
       <Sidebar
-        user={userProfile}
+        user={defaultUserFallback}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {/* Contenedor Principal a Ancho Completo */}
+      {/* Contenedor Principal */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <Header
-          user={userProfile}
+          user={defaultUserFallback}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         />
 
@@ -144,10 +120,10 @@ export default function DashboardLayout({
           {loading ? (
             <div className="p-16 flex flex-col items-center justify-center gap-3 text-on-surface-variant">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <p className="font-body-sm text-xs">Verificando estado de membresía del taller...</p>
+              <p className="font-body-sm text-xs">Consultando suscripción en Supabase...</p>
             </div>
           ) : isSuspended ? (
-            /* CASO 1: PANTALLA DE TALLER SUSPENDIDO / DADO DE BAJA */
+            /* CASO 1: PANTALLA DE TALLER SUSPENDIDO */
             <div className="max-w-2xl mx-auto my-8 bg-surface-container border-2 border-error/40 rounded-3xl p-8 shadow-2xl space-y-6 text-center animate-in zoom-in-95 duration-200">
               <div className="w-16 h-16 rounded-2xl bg-error/20 text-error flex items-center justify-center mx-auto border border-error/30 shadow-inner">
                 <Lock className="w-8 h-8" />
@@ -188,17 +164,19 @@ export default function DashboardLayout({
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
-                  onClick={handleForceReactivate}
+                  onClick={loadUserAndShopStatus}
+                  className="flex-1 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant text-on-surface font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4 text-primary" /> Reintentar Verificación
+                </button>
+                <a
+                  href={`https://wa.me/?text=Hola,%20les%20escribo%20porque%20mi%20taller%20(${userShop?.name || 'Taller'})%20se%20encuentra%20suspendido%20y%20ya%20realicé%20la%20transferencia%20de%20%2415.000.`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
                 >
-                  <Unlock className="w-4 h-4" /> Desbloquear & Reactivar Mi Taller
-                </button>
-                <Link
-                  href="/checkout"
-                  className="flex-1 bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  <CreditCard className="w-4 h-4" /> Ir a Pasarela de Pago
-                </Link>
+                  <MessageSquare className="w-4 h-4" /> Notificar Pago WhatsApp
+                </a>
               </div>
             </div>
           ) : isPendingPayment ? (
@@ -216,7 +194,7 @@ export default function DashboardLayout({
                   ¡Bienvenido a ProRepair Ops!
                 </h2>
                 <p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-                  Para ingresar por primera vez a tu panel y habilitar la comanda de 80mm, completa el pago inicial de la membresía ($15.000 ARS/mes).
+                  Para ingresar por primera vez a tu panel y emitir órdenes de servicio con comanda de 80mm, completa el pago inicial de tu membresía ($15.000 ARS/mes).
                 </p>
               </div>
 
@@ -249,10 +227,10 @@ export default function DashboardLayout({
                   <CreditCard className="w-4 h-4" /> Ir a Pasarela de Pago ($15.000)
                 </Link>
                 <button
-                  onClick={handleForceReactivate}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
+                  onClick={loadUserAndShopStatus}
+                  className="flex-1 bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
                 >
-                  <Unlock className="w-4 h-4 text-white" /> Activar Mi Taller
+                  <RefreshCw className="w-4 h-4 text-primary" /> Ya pagué, verificar
                 </button>
               </div>
             </div>
