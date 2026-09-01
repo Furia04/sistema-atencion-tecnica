@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Printer, QrCode, Search, User, Smartphone, AlertCircle, Save, CheckCircle2 } from 'lucide-react';
+import { Printer, Search, User, Smartphone, AlertCircle, Save, CheckCircle2 } from 'lucide-react';
 import { createServiceOrderWithDevice } from '@/lib/supabase/services';
 
 export default function NewOrderIntakePage() {
@@ -299,11 +299,6 @@ export default function NewOrderIntakePage() {
                 <div className="mb-6 border-b-2 border-black border-dashed pb-4">
                   <div className="font-bold uppercase mb-1">FALLA REPORTADA</div>
                   <p className="whitespace-pre-wrap">{faultDescription || 'Sin especificar...'}</p>
-                </div>
-
-                <div className="text-center mb-4 flex flex-col items-center">
-                  <QrCode className="w-12 h-12 text-black mb-1" />
-                  <div className="text-[10px] font-bold">Escanear para seguimiento</div>
                 </div>
 
                 <div className="text-center text-[9px] uppercase">

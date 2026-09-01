@@ -274,10 +274,10 @@ export default function LandingPage() {
                 <Printer className="w-6 h-6" />
               </div>
               <h3 className="font-title-sm text-xl font-bold text-on-surface">
-                Ticket Térmico 80mm & QR
+                Comanda Térmica 80mm & Hojas A4
               </h3>
               <p className="font-body-sm text-on-surface-variant text-sm leading-relaxed">
-                Imprime comprobantes físicos al instante con el formato estándar de comanda de 80mm e incluye un código QR listo para escanear.
+                Imprime comprobantes físicos al instante en formato de comanda de 80mm o en hojas A4 completas para archivo y firma del cliente.
               </p>
             </div>
 
@@ -409,7 +409,7 @@ export default function LandingPage() {
 
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span className="font-semibold">Tickets térmicos de 80mm con QR</span>
+                  <span className="font-semibold font-sans font-medium">Comandas 80mm y Hojas A4</span>
                 </div>
 
                 <div className="flex items-center gap-2.5">
