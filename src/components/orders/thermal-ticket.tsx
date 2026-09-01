@@ -147,7 +147,7 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
 
         <div className="text-[8px] text-center pt-1">
           <p>{termsText}</p>
-          <p className="font-bold mt-2">www.prorepair.ops / {order.tracking_code}</p>
+          <p className="font-bold mt-2">www.jatech.ops / {order.tracking_code}</p>
         </div>
       </div>
     </div>

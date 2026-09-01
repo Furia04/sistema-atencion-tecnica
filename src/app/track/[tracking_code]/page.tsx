@@ -23,7 +23,7 @@ interface TrackPageProps {
 export default function TrackOrderPage({ params }: TrackPageProps) {
   const trackingCode = params.tracking_code.toUpperCase();
 
-  const shopName = 'ProRepair Ops';
+  const shopName = 'JaTech';
   const shopStation = 'Sucursal Norte';
   const shopPhone = '+5491122334455';
 

@@ -153,7 +153,7 @@ export default function RegisterPage() {
             </div>
             <div className="text-left">
               <span className="font-headline-md text-2xl font-bold text-primary tracking-tight block">
-                ProRepair Ops
+                JaTech
               </span>
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-widest block">
                 Prueba Gratis 14 Días

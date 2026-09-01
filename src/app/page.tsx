@@ -439,7 +439,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-on-surface-variant">
           <Logo size={32} />
 
-          <p>© 2026 ProRepair Ops Inc. Todos los derechos reservados.</p>
+          <p>© 2026 JaTech. Software para técnicos. Todos los derechos reservados.</p>
 
           <div className="flex gap-6">
             <a href="#" className="hover:text-primary transition-colors">Términos de Servicio</a>

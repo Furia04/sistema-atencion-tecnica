@@ -10,13 +10,12 @@ import {
   CheckCircle2,
   ShieldCheck,
   Zap,
+  Lock,
   ArrowRight,
   Copy,
   Check,
-  Lock,
   MessageSquare,
 } from 'lucide-react';
-import { updateShopSubscriptionStatus } from '@/lib/supabase/services';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -24,49 +23,45 @@ export default function CheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  const handleSimulateSuccessfulPayment = async () => {
+  const handleSimulateSuccessfulPayment = () => {
     setProcessing(true);
-    try {
-      // Intentar actualizar taller a activo
-      await updateShopSubscriptionStatus('shop-north-station', 'active', true);
-    } catch (err) {
-      console.warn('Suscripción activada');
-    } finally {
+    setTimeout(() => {
       setProcessing(false);
       setPaymentSuccess(true);
       setTimeout(() => {
         router.push('/dashboard');
       }, 1500);
-    }
+    }, 1200);
   };
 
   return (
-    <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/15 rounded-full blur-[140px] pointer-events-none" />
+    <div className="min-h-screen bg-background text-on-surface flex items-center justify-center p-6 font-sans relative overflow-hidden">
+      {/* Background Accents */}
+      <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/20 rounded-full blur-[128px] pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-600/20 rounded-full blur-[128px] pointer-events-none" />
 
-      <div className="w-full max-w-2xl bg-surface-container border border-outline-variant/80 rounded-3xl p-8 sm:p-10 shadow-2xl relative z-10 space-y-8">
-        {/* Header Checkout */}
+      <div className="w-full max-w-xl bg-surface-container border border-outline-variant/80 rounded-2xl p-8 shadow-2xl relative z-10 space-y-6">
+        {/* Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-block">
-            <Logo size={42} textSubtitle="Pasarela de Pago Segura" />
+            <Logo size={42} textSubtitle="Software para técnicos" />
           </Link>
-          <h1 className="font-display-lg text-2xl sm:text-3xl font-bold text-on-surface pt-2">
-            Suscripción Plan Taller Pro
+          <h1 className="font-title-sm text-xl font-bold text-on-surface pt-2">
+            Activación de Membresía SaaS
           </h1>
-          <p className="font-body-sm text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-            Activa tu taller para comenzar a emitir órdenes ilimitadas, tickets de 80mm e inventario.
+          <p className="font-body-sm text-xs text-on-surface-variant">
+            Acceso instantáneo e ilimitado para tu taller de servicio técnico.
           </p>
         </div>
 
-        {/* Resumen del Pedido */}
-        <div className="bg-surface-container-low border border-outline-variant/60 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        {/* Resumen del Plan */}
+        <div className="bg-surface-container-low border border-outline-variant/60 rounded-2xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <span className="font-label-caps text-xs text-primary uppercase font-bold">
               Plan Mensual SaaS
             </span>
             <h2 className="font-title-sm text-lg font-bold text-on-surface">
-              ProRepair Ops — Plan Taller Pro
+              JaTech — Plan Taller Pro
             </h2>
             <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">
               Acceso completo para tu taller • Facturación mensual
@@ -105,14 +100,14 @@ export default function CheckoutPage() {
                   </div>
                   <div className="bg-surface-container p-3 rounded-xl border border-outline-variant/40 space-y-1 font-mono-data text-xs">
                     <div className="text-on-surface-variant text-[10px] uppercase font-bold">Alias MercadoPago / CBU:</div>
-                    <div className="text-on-surface font-bold text-sm">PROREPAIR.OPS.MP</div>
-                    <div className="text-on-surface-variant text-[10px]">Titular: ProRepair Ops SRL</div>
+                    <div className="text-on-surface font-bold text-sm">JATECH.OPS.MP</div>
+                    <div className="text-on-surface-variant text-[10px]">Titular: JaTech Software SRL</div>
                   </div>
                 </div>
 
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText('PROREPAIR.OPS.MP');
+                    navigator.clipboard.writeText('JATECH.OPS.MP');
                     setCopiedAlias(true);
                     setTimeout(() => setCopiedAlias(false), 2000);
                   }}
@@ -154,7 +149,7 @@ export default function CheckoutPage() {
             {/* Notificación de Asistencia por WhatsApp */}
             <div className="text-center pt-2 border-t border-outline-variant/40">
               <a
-                href="https://wa.me/?text=Hola,%20acabo%20de%20realizar%20la%20transferencia%20de%20%2415.000%20para%20activar%20mi%20taller%20en%20ProRepair%20Ops."
+                href="https://wa.me/?text=Hola,%20acabo%20de%20realizar%20la%20transferencia%20de%20%2415.000%20para%20activar%20mi%20taller%20en%20JaTech."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-xs font-title-sm text-on-surface-variant hover:text-emerald-400 font-semibold transition-colors"

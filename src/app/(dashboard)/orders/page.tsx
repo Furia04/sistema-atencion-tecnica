@@ -317,7 +317,7 @@ export default function ServiceOrdersPage() {
                       {ord.customer_phone && (
                         <a
                           href={`https://wa.me/${ord.customer_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                            `Hola ${ord.customer_name}, te escribimos de ProRepair por tu equipo (${ord.device_info}). Puedes consultar el estado actualizado de tu orden ${ord.tracking_code} aquí: ${window.location.origin}/track/${ord.tracking_code.replace('#', '')}`
+                            `Hola ${ord.customer_name}, te escribimos de JaTech por tu equipo (${ord.device_info}). Puedes consultar el estado actualizado de tu orden ${ord.tracking_code} aquí: ${window.location.origin}/track/${ord.tracking_code.replace('#', '')}`
                           )}`}
                           target="_blank"
                           rel="noopener noreferrer"

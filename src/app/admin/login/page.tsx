@@ -104,7 +104,7 @@ export default function SuperAdminLoginPage() {
             Autenticación Administrador
           </h1>
           <p className="font-body-sm text-xs text-on-surface-variant">
-            Acceso estrictamente restringido al dueño de la plataforma ProRepair Ops.
+            Acceso estrictamente restringido al dueño de la plataforma JaTech.
           </p>
         </div>
 

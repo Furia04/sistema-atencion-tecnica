@@ -59,7 +59,6 @@ export default function DashboardLayout({
             created_at: dbShop.created_at || new Date().toISOString(),
           });
         } else {
-          // Si el taller no existe en la tabla shops de Supabase aún
           setUserShop({
             id: shopId,
             name: profile.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
@@ -82,7 +81,6 @@ export default function DashboardLayout({
     loadUserAndShopStatus();
   }, []);
 
-  // EVALUACIÓN 100% REAL DEL ESTADO DEL TALLER EN SUPABASE:
   const isSuspended = userShop
     ? (userShop.active === false && (userShop.subscription_status === 'canceled' || userShop.subscription_status === 'past_due'))
     : false;
@@ -145,12 +143,12 @@ export default function DashboardLayout({
                 <div className="text-on-surface-variant text-[10px] uppercase font-bold">Datos para Reactivación por Transferencia:</div>
                 <div className="flex justify-between items-center bg-surface-container p-3 rounded-xl border border-outline-variant/40">
                   <div>
-                    <div className="text-on-surface font-bold text-sm">PROREPAIR.OPS.MP</div>
-                    <div className="text-on-surface-variant text-[10px]">MercadoPago / CBU • Titular: ProRepair Ops SRL</div>
+                    <div className="text-on-surface font-bold text-sm">JATECH.OPS.MP</div>
+                    <div className="text-on-surface-variant text-[10px]">MercadoPago / CBU • Titular: JaTech Software SRL</div>
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText('PROREPAIR.OPS.MP');
+                      navigator.clipboard.writeText('JATECH.OPS.MP');
                       setCopiedAlias(true);
                       setTimeout(() => setCopiedAlias(false), 2000);
                     }}
@@ -191,7 +189,7 @@ export default function DashboardLayout({
                   Activación Inicial Requerida
                 </span>
                 <h2 className="font-display-lg text-2xl sm:text-3xl font-bold text-on-surface">
-                  ¡Bienvenido a ProRepair Ops!
+                  ¡Bienvenido a JaTech!
                 </h2>
                 <p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
                   Para ingresar por primera vez a tu panel y emitir órdenes de servicio con comanda de 80mm, completa el pago inicial de tu membresía ($15.000 ARS/mes).
@@ -202,12 +200,12 @@ export default function DashboardLayout({
                 <div className="text-on-surface-variant text-[10px] uppercase font-bold">Transferencia Bancaria Directa:</div>
                 <div className="flex justify-between items-center bg-surface-container p-3 rounded-xl border border-outline-variant/40">
                   <div>
-                    <div className="text-on-surface font-bold text-sm">PROREPAIR.OPS.MP</div>
+                    <div className="text-on-surface font-bold text-sm">JATECH.OPS.MP</div>
                     <div className="text-on-surface-variant text-[10px]">MercadoPago / CBU • $15.000 ARS</div>
                   </div>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText('PROREPAIR.OPS.MP');
+                      navigator.clipboard.writeText('JATECH.OPS.MP');
                       setCopiedAlias(true);
                       setTimeout(() => setCopiedAlias(false), 2000);
                     }}
@@ -235,7 +233,6 @@ export default function DashboardLayout({
               </div>
             </div>
           ) : (
-            /* CASO 3: TALLER ACTIVO -> PANEL DESBLOQUEADO */
             children
           )}
         </main>

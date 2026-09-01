@@ -13,7 +13,7 @@ export function Logo({
   className = '',
   size = 36,
   showText = true,
-  textSubtitle,
+  textSubtitle = 'Software para técnicos',
 }: LogoProps) {
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
@@ -43,7 +43,7 @@ export function Logo({
       {showText && (
         <div className="flex flex-col">
           <span className="font-headline-md text-lg font-bold text-primary tracking-tight leading-none">
-            ProRepair<span className="text-on-surface font-light ml-0.5">Ops</span>
+            JaTech
           </span>
           {textSubtitle && (
             <span className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-widest mt-0.5">

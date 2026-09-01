@@ -321,7 +321,7 @@ export default function TrackByDniPage() {
 
       {/* Pie de Página */}
       <footer className="py-6 border-t border-outline-variant text-center text-on-surface-variant font-body-sm text-xs mt-auto">
-        <p>© 2026 ProRepair Ops. Portal B2C de Seguimiento de Reparaciones.</p>
+        <p>© 2026 JaTech. Portal B2C de Seguimiento de Reparaciones.</p>
       </footer>
     </div>
   );

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ProRepair Ops - SaaS de Atención Técnica Multirubro',
+  title: 'JaTech - Software para técnicos',
   description: 'Sistema de gestión para talleres de reparación de electrónica, PC, telefonía y automotores.',
 };
 

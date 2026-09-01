@@ -239,7 +239,7 @@ export default function CustomersPage() {
   const customerOrders = MOCK_ORDERS[selectedCustomer.id] || [];
 
   const waMessage = encodeURIComponent(
-    `Hola ${selectedCustomer.full_name}, nos comunicamos desde ProRepair Ops sobre sus equipos de servicio técnico.`
+    `Hola ${selectedCustomer.full_name}, nos comunicamos desde JaTech sobre sus equipos de servicio técnico.`
   );
   const waUrl = `https://wa.me/${selectedCustomer.phone.replace(/[^0-9]/g, '')}?text=${waMessage}`;
 

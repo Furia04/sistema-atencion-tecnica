@@ -251,7 +251,7 @@ export default function InteractiveDemoPage() {
           </div>
           <div>
             <h1 className="font-headline-md text-base font-bold text-primary">
-              ProRepair Ops <span className="text-xs text-on-surface-variant font-normal">(Sandbox Demo)</span>
+              JaTech <span className="text-xs text-on-surface-variant font-normal">(Software para técnicos - Sandbox Demo)</span>
             </h1>
           </div>
         </div>
