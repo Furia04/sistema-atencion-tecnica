@@ -224,6 +224,7 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       customer_phone: ord.customers?.phone || '',
       customer_document_id: ord.customers?.document_id || '',
       device_info: `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
+      custom_attributes: ord.devices?.custom_attributes || {},
     }));
 
     const orderMap = new Map<string, ServiceOrder>();

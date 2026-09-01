@@ -76,6 +76,8 @@ export interface ServiceOrder {
   customer_phone?: string;
   customer_document_id?: string;
   device_info?: string;
+  custom_attributes?: Record<string, any>;
+  unlock_pattern?: number[];
 }
 
 export interface InventoryItem {

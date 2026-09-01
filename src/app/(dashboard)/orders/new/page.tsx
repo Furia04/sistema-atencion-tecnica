@@ -2,18 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Printer, FileText, Search, User, Smartphone, AlertCircle, Save, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Printer, FileText, Search, User, Smartphone, AlertCircle, Save, CheckCircle2, ArrowRight, Lock } from 'lucide-react';
 import { createServiceOrderWithDevice, getCurrentUserProfile } from '@/lib/supabase/services';
 import { supabase } from '@/lib/supabase/client';
 import { CustomFieldDefinition, DeviceCategoryTemplate, ServiceOrder } from '@/types';
 import { CustomFieldsRenderer } from '@/components/orders/custom-fields-renderer';
+import { PatternLockInput } from '@/components/orders/pattern-lock-input';
 
 const DEFAULT_TEMPLATES: DeviceCategoryTemplate[] = [
   {
     id: 'tmpl-1',
     category_name: 'Smartphone',
     fields: [
-      { id: 'f1', name: 'passcode', label: 'Patrón / Clave de Desbloqueo', type: 'text', required: false, placeholder: 'Ej: 1234' },
+      { id: 'f1', name: 'passcode', label: 'Patrón / Clave de Desbloqueo (Texto)', type: 'text', required: false, placeholder: 'Ej: PIN 1234' },
       { id: 'f2', name: 'has_sim', label: 'Trae Tarjeta SIM', type: 'checkbox', required: false },
       { id: 'f3', name: 'battery_state', label: 'Estado de Batería', type: 'select', required: false, options: ['Buena (Original)', 'Degradada', 'Inflada / Dañada'] },
     ],
@@ -55,6 +56,10 @@ export default function NewOrderIntakePage() {
   const [powersOn, setPowersOn] = useState(true);
   const [faultDescription, setFaultDescription] = useState('');
 
+  // Patrón Táctil de Desbloqueo (1 a 9)
+  const [unlockPattern, setUnlockPattern] = useState<number[]>([]);
+  const [showPatternDrawer, setShowPatternDrawer] = useState(false);
+
   // Plantillas de Campos Personalizados por Rubro
   const [categoryTemplates, setCategoryTemplates] = useState<DeviceCategoryTemplate[]>(DEFAULT_TEMPLATES);
   const [customAttrValues, setCustomAttrValues] = useState<Record<string, any>>({});
@@ -90,7 +95,6 @@ export default function NewOrderIntakePage() {
     loadTemplates();
   }, []);
 
-  // Obtener los campos dinámicos correspondientes a la categoría seleccionada
   const activeTemplate = categoryTemplates.find(
     (t) => t.category_name.toLowerCase() === deviceType.toLowerCase() || deviceType.toLowerCase().includes(t.category_name.toLowerCase())
   ) || categoryTemplates[0];
@@ -103,7 +107,6 @@ export default function NewOrderIntakePage() {
       return false;
     }
 
-    // Validar campos personalizados obligatorios
     for (const field of activeCategoryFields) {
       if (field.required && !customAttrValues[field.name]) {
         alert(`El campo personalizado "${field.label}" es obligatorio para la categoría ${deviceType}.`);
@@ -132,7 +135,7 @@ export default function NewOrderIntakePage() {
         brand: deviceBrand.trim(),
         model: deviceModel.trim(),
         serial_number: serialImei.trim(),
-        custom_attributes: { powers_on: powersOn, ...customAttrValues },
+        custom_attributes: { powers_on: powersOn, unlock_pattern: unlockPattern, ...customAttrValues },
       },
       order: {
         reported_fault: faultDescription.trim(),
@@ -161,6 +164,7 @@ export default function NewOrderIntakePage() {
         reported_fault: faultDescription.trim(),
         final_price: 0,
         created_at: new Date().toISOString(),
+        custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
 
       try {
@@ -197,7 +201,7 @@ export default function NewOrderIntakePage() {
         brand: deviceBrand.trim(),
         model: deviceModel.trim(),
         serial_number: serialImei.trim(),
-        custom_attributes: { powers_on: powersOn, ...customAttrValues },
+        custom_attributes: { powers_on: powersOn, unlock_pattern: unlockPattern, ...customAttrValues },
       },
       order: {
         reported_fault: faultDescription.trim(),
@@ -222,6 +226,7 @@ export default function NewOrderIntakePage() {
         reported_fault: faultDescription.trim(),
         final_price: 0,
         created_at: new Date().toISOString(),
+        custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
 
       try {
@@ -423,18 +428,39 @@ export default function NewOrderIntakePage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="powersOnCheck"
-                    checked={powersOn}
-                    onChange={(e) => setPowersOn(e.target.checked)}
-                    className="w-4 h-4 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary"
-                  />
-                  <label htmlFor="powersOnCheck" className="text-xs font-semibold text-on-surface-variant cursor-pointer select-none">
-                    El equipo enciende al ingresar
-                  </label>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="powersOnCheck"
+                      checked={powersOn}
+                      onChange={(e) => setPowersOn(e.target.checked)}
+                      className="w-4 h-4 rounded border-outline-variant bg-surface-container-lowest text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="powersOnCheck" className="text-xs font-semibold text-on-surface-variant cursor-pointer select-none">
+                      Enciende al ingresar
+                    </label>
+                  </div>
+
+                  {/* Botón para Abrir el Dibujador de Patrón Táctil */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPatternDrawer(!showPatternDrawer)}
+                    className="px-3 py-1.5 bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600/30 text-purple-300 font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-colors"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    {unlockPattern.length > 0
+                      ? `Patrón trazado (${unlockPattern.length} ptos)`
+                      : 'Dibujar Patrón Táctil'}
+                  </button>
                 </div>
+
+                {/* DIBUJADOR DE PATRÓN TÁCTIL (VISUAL DIGITAL) */}
+                {showPatternDrawer && (
+                  <div className="pt-2 animate-in zoom-in-95 duration-150">
+                    <PatternLockInput value={unlockPattern} onChange={setUnlockPattern} />
+                  </div>
+                )}
 
                 {/* RENDERING DE CAMPOS PERSONALIZADOS DINÁMICOS POR CATEGORÍA */}
                 {activeCategoryFields && activeCategoryFields.length > 0 && (
@@ -477,7 +503,7 @@ export default function NewOrderIntakePage() {
             {/* Encabezado y Pestañas de Vista Previa */}
             <div className="p-4 border-b border-outline-variant bg-surface-container-high flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <span className="font-label-caps text-xs text-on-surface-variant uppercase flex items-center gap-2 font-bold">
-                <Printer className="w-4 h-4 text-primary" /> Vista Previa de Documento
+                <Printer className="w-4 h-4 text-primary" /> Vista Previa de Documento (Digital / Impresión)
               </span>
 
               <div className="flex bg-surface-container-lowest p-1 rounded-xl border border-outline-variant/60 text-xs w-full sm:w-auto">
@@ -614,7 +640,7 @@ export default function NewOrderIntakePage() {
         </div>
       </div>
 
-      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR 80MM) */}
+      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR 80MM - NO INCLUYE EL PATRÓN DE DESBLOQUEO POR PRIVACIDAD) */}
       {printFormat === '80mm' && (
         <div className="hidden print:block print:w-[80mm] print:p-2 print:m-0 print:bg-white print:text-black font-mono text-[10px] leading-tight">
           <div className="text-center pb-2 mb-2 border-b border-dashed border-black">
@@ -649,7 +675,7 @@ export default function NewOrderIntakePage() {
         </div>
       )}
 
-      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR HOJA A4) */}
+      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR HOJA A4 - NO INCLUYE EL PATRÓN DE DESBLOQUEO POR PRIVACIDAD) */}
       {printFormat === 'a4' && (
         <div className="hidden print:block print:w-full print:p-8 print:m-0 print:bg-white print:text-black font-sans text-xs space-y-6">
           <div className="flex justify-between items-start border-b-2 border-black pb-4">

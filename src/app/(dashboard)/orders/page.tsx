@@ -27,6 +27,7 @@ import {
   FolderOpen,
   Send,
 } from 'lucide-react';
+import { PatternLockInput } from '@/components/orders/pattern-lock-input';
 import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
 import { BudgetCalculator } from '@/components/orders/budget-calculator';
 import { ThermalTicket } from '@/components/orders/thermal-ticket';
@@ -441,6 +442,16 @@ export default function ServiceOrdersPage() {
                     className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-2.5 text-xs text-on-surface font-mono font-bold"
                   />
                 </div>
+
+                {/* PATRÓN DE DESBLOQUEO TÁCTIL (SOLO VISIBLE EN LA ORDEN DIGITAL) */}
+                {((editingOrder as any).custom_attributes?.unlock_pattern?.length > 0 || (editingOrder as any).unlock_pattern?.length > 0) && (
+                  <div className="pt-2 border-t border-outline-variant/60">
+                    <PatternLockInput
+                      value={(editingOrder as any).custom_attributes?.unlock_pattern || (editingOrder as any).unlock_pattern}
+                      readOnly
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <BudgetCalculator
