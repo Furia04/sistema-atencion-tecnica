@@ -34,7 +34,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS shops (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  owner_email TEXT NOT NULL,
+  owner_email TEXT,
   subscription_status TEXT DEFAULT 'pending_payment',
   plan_price NUMERIC(10,2) DEFAULT 15000.00,
   active BOOLEAN DEFAULT FALSE,
@@ -42,6 +42,15 @@ CREATE TABLE IF NOT EXISTS shops (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ASEGURAR COLUMNAS EN CASO DE QUE LA TABLA YA EXISTIERA PREVIAMENTE
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS owner_email TEXT;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'pending_payment';
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS plan_price NUMERIC(10,2) DEFAULT 15000.00;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- 4. TABLA DE USUARIOS DEL SISTEMA (USERS / PROFILES)
 CREATE TABLE IF NOT EXISTS users (
@@ -53,6 +62,12 @@ CREATE TABLE IF NOT EXISTS users (
   can_view_financials BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS shop_id UUID;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role user_role DEFAULT 'owner';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS can_view_financials BOOLEAN DEFAULT TRUE;
 
 -- 5. TABLA DE CLIENTES (CUSTOMERS)
 CREATE TABLE IF NOT EXISTS customers (
@@ -129,28 +144,19 @@ ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS TOTALES PARA SHOPS Y USERS (PERMITIR LECTURA, INSERCIÓN Y ACTUALIZACIÓN)
-DROP POLICY IF EXISTS "Public Admin Select Shops" ON shops;
-DROP POLICY IF EXISTS "Public Insert Shops" ON shops;
-DROP POLICY IF EXISTS "Public Update Shops" ON shops;
+-- POLÍTICAS TOTALES PARA SHOPS Y USERS
 DROP POLICY IF EXISTS "Allow All Shops" ON shops;
 CREATE POLICY "Allow All Shops" ON shops FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
-DROP POLICY IF EXISTS "Public Select Users" ON users;
-DROP POLICY IF EXISTS "Public Insert Users" ON users;
-DROP POLICY IF EXISTS "Public Update Users" ON users;
 DROP POLICY IF EXISTS "Allow All Users" ON users;
 CREATE POLICY "Allow All Users" ON users FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
-DROP POLICY IF EXISTS "Public Tracking Search" ON service_orders;
 DROP POLICY IF EXISTS "Allow All Orders" ON service_orders;
 CREATE POLICY "Allow All Orders" ON service_orders FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
-DROP POLICY IF EXISTS "Public Customers Tracking" ON customers;
 DROP POLICY IF EXISTS "Allow All Customers" ON customers;
 CREATE POLICY "Allow All Customers" ON customers FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
-DROP POLICY IF EXISTS "Public Devices Tracking" ON devices;
 DROP POLICY IF EXISTS "Allow All Devices" ON devices;
 CREATE POLICY "Allow All Devices" ON devices FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
@@ -163,7 +169,6 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_shop_name TEXT;
   v_full_name TEXT;
-  v_role user_role;
 BEGIN
   v_shop_name := COALESCE(NEW.raw_user_meta_data->>'shop_name', 'Taller de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email));
   v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email);
