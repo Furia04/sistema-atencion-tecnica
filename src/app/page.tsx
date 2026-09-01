@@ -442,7 +442,7 @@ export default function LandingPage() {
           <p>© 2026 JaTech. Software para técnicos. Todos los derechos reservados.</p>
 
           <div className="flex gap-6">
-            <a href="#" className="hover:text-primary transition-colors">Términos de Servicio</a>
+            <Link href="/terms" className="hover:text-primary transition-colors">Términos de Servicio</Link>
             <a href="#" className="hover:text-primary transition-colors">Privacidad</a>
             <a href="#" className="hover:text-primary transition-colors">Soporte</a>
           </div>
