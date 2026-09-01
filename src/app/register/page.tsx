@@ -64,9 +64,40 @@ export default function RegisterPage() {
         return;
       }
 
-      const generatedShopId = authData?.user?.id || `shop-${Date.now()}`;
+      const userId = authData?.user?.id;
+      const generatedShopId = userId || `shop-${Date.now()}`;
 
-      // 2. Insertar Taller en la tabla 'shops' de Supabase
+      // 2. Insertar o actualizar Taller en la tabla 'shops' de Supabase
+      try {
+        await supabase.from('shops').upsert([{
+          id: generatedShopId,
+          name: cleanShopName,
+          owner_email: cleanEmail,
+          subscription_status: 'pending_payment',
+          plan_price: 15000,
+          active: false,
+        }], { onConflict: 'id' });
+      } catch (err) {
+        console.warn('Error al insertar taller en Supabase:', err);
+      }
+
+      // 3. Insertar Perfil de Usuario en la tabla 'users' de Supabase
+      if (userId) {
+        try {
+          await supabase.from('users').upsert([{
+            id: userId,
+            email: cleanEmail,
+            full_name: fullName,
+            role: 'owner',
+            shop_id: generatedShopId,
+            can_view_financials: true,
+          }], { onConflict: 'id' });
+        } catch (err) {
+          console.warn('Error al insertar usuario en Supabase:', err);
+        }
+      }
+
+      // 4. Persistir el nuevo taller en localStorage para disponibilidad inmediata local
       const newShopObj: Shop = {
         id: generatedShopId,
         name: cleanShopName,
@@ -78,20 +109,6 @@ export default function RegisterPage() {
         orders_count: 0,
       };
 
-      try {
-        await supabase.from('shops').insert([{
-          id: generatedShopId,
-          name: cleanShopName,
-          owner_email: cleanEmail,
-          subscription_status: 'pending_payment',
-          plan_price: 15000,
-          active: false,
-        }]);
-      } catch (err) {
-        console.warn('Error al insertar taller en Supabase');
-      }
-
-      // 3. Persistir el nuevo taller en localStorage
       if (typeof window !== 'undefined') {
         try {
           const storedShopsStr = localStorage.getItem('prorepair_registered_shops');

@@ -54,27 +54,27 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. TABLA DE CLIENTES (CUSTOMERS - CON CAMPO DNI / DOCUMENTO)
+-- 5. TABLA DE CLIENTES (CUSTOMERS)
 CREATE TABLE IF NOT EXISTS customers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
   full_name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  document_id TEXT, -- DNI / CUIT / Identificación clave
+  document_id TEXT,
   email TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. TABLA DE DISPOSITIVOS / EQUIPOS (DEVICES - JSONB PARA CAMPOS DINÁMICOS POR RUBRO)
+-- 6. TABLA DE DISPOSITIVOS / EQUIPOS (DEVICES)
 CREATE TABLE IF NOT EXISTS devices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  type TEXT NOT NULL, -- Smartphone, Laptop, ECU, Drone, etc.
+  type TEXT NOT NULL,
   brand TEXT NOT NULL,
   model TEXT NOT NULL,
   serial_number TEXT,
-  custom_attributes JSONB DEFAULT '{}'::jsonb, -- Almacena patrones de desbloqueo, contraseñas, kilometraje, etc.
+  custom_attributes JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE TABLE IF NOT EXISTS service_orders (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-  tracking_code TEXT UNIQUE NOT NULL, -- Ej: #WO-8891
+  tracking_code TEXT UNIQUE NOT NULL,
   device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   technician_id UUID REFERENCES users(id),
@@ -129,12 +129,31 @@ ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS RLS (ACCESO PÚBLICO SEGURO PARA SEGUIMIENTO POR TRACKING CODE O DNI)
-CREATE POLICY "Public Tracking Search" ON service_orders
-  FOR SELECT USING (TRUE);
+-- POLÍTICAS DE ACCESO HABILITADAS PARA SHOPS Y USERS
+DROP POLICY IF EXISTS "Public Admin Select Shops" ON shops;
+CREATE POLICY "Public Admin Select Shops" ON shops FOR SELECT USING (TRUE);
 
-CREATE POLICY "Public Customers Tracking" ON customers
-  FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Public Insert Shops" ON shops;
+CREATE POLICY "Public Insert Shops" ON shops FOR INSERT WITH CHECK (TRUE);
 
-CREATE POLICY "Public Devices Tracking" ON devices
-  FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Public Update Shops" ON shops;
+CREATE POLICY "Public Update Shops" ON shops FOR UPDATE USING (TRUE);
+
+DROP POLICY IF EXISTS "Public Select Users" ON users;
+CREATE POLICY "Public Select Users" ON users FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public Insert Users" ON users;
+CREATE POLICY "Public Insert Users" ON users FOR INSERT WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "Public Update Users" ON users;
+CREATE POLICY "Public Update Users" ON users FOR UPDATE USING (TRUE);
+
+-- POLÍTICAS RLS PÚBLICAS PARA SEGUIMIENTO
+DROP POLICY IF EXISTS "Public Tracking Search" ON service_orders;
+CREATE POLICY "Public Tracking Search" ON service_orders FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public Customers Tracking" ON customers;
+CREATE POLICY "Public Customers Tracking" ON customers FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "Public Devices Tracking" ON devices;
+CREATE POLICY "Public Devices Tracking" ON devices FOR SELECT USING (TRUE);
