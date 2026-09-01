@@ -129,31 +129,105 @@ ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS DE ACCESO HABILITADAS PARA SHOPS Y USERS
+-- POLÍTICAS TOTALES PARA SHOPS Y USERS (PERMITIR LECTURA, INSERCIÓN Y ACTUALIZACIÓN)
 DROP POLICY IF EXISTS "Public Admin Select Shops" ON shops;
-CREATE POLICY "Public Admin Select Shops" ON shops FOR SELECT USING (TRUE);
-
 DROP POLICY IF EXISTS "Public Insert Shops" ON shops;
-CREATE POLICY "Public Insert Shops" ON shops FOR INSERT WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Public Update Shops" ON shops;
-CREATE POLICY "Public Update Shops" ON shops FOR UPDATE USING (TRUE);
+DROP POLICY IF EXISTS "Allow All Shops" ON shops;
+CREATE POLICY "Allow All Shops" ON shops FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 DROP POLICY IF EXISTS "Public Select Users" ON users;
-CREATE POLICY "Public Select Users" ON users FOR SELECT USING (TRUE);
-
 DROP POLICY IF EXISTS "Public Insert Users" ON users;
-CREATE POLICY "Public Insert Users" ON users FOR INSERT WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Public Update Users" ON users;
-CREATE POLICY "Public Update Users" ON users FOR UPDATE USING (TRUE);
+DROP POLICY IF EXISTS "Allow All Users" ON users;
+CREATE POLICY "Allow All Users" ON users FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
--- POLÍTICAS RLS PÚBLICAS PARA SEGUIMIENTO
 DROP POLICY IF EXISTS "Public Tracking Search" ON service_orders;
-CREATE POLICY "Public Tracking Search" ON service_orders FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Allow All Orders" ON service_orders;
+CREATE POLICY "Allow All Orders" ON service_orders FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 DROP POLICY IF EXISTS "Public Customers Tracking" ON customers;
-CREATE POLICY "Public Customers Tracking" ON customers FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Allow All Customers" ON customers;
+CREATE POLICY "Allow All Customers" ON customers FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 DROP POLICY IF EXISTS "Public Devices Tracking" ON devices;
-CREATE POLICY "Public Devices Tracking" ON devices FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Allow All Devices" ON devices;
+CREATE POLICY "Allow All Devices" ON devices FOR ALL USING (TRUE) WITH CHECK (TRUE);
+
+-- =======================================================
+-- 11. TRIGGER AUTOMÁTICO AL REGISTRAR UN USUARIO EN AUTH
+-- =======================================================
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_shop_name TEXT;
+  v_full_name TEXT;
+  v_role user_role;
+BEGIN
+  v_shop_name := COALESCE(NEW.raw_user_meta_data->>'shop_name', 'Taller de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email));
+  v_full_name := COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email);
+  
+  -- 1. Insertar automáticamente en public.shops
+  INSERT INTO public.shops (id, name, owner_email, subscription_status, plan_price, active)
+  VALUES (
+    NEW.id,
+    v_shop_name,
+    NEW.email,
+    'pending_payment',
+    15000.00,
+    FALSE
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET name = EXCLUDED.name,
+        owner_email = EXCLUDED.owner_email;
+
+  -- 2. Insertar automáticamente en public.users
+  INSERT INTO public.users (id, shop_id, email, full_name, role, can_view_financials)
+  VALUES (
+    NEW.id,
+    NEW.id,
+    NEW.email,
+    v_full_name,
+    'owner',
+    TRUE
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET email = EXCLUDED.email,
+        full_name = EXCLUDED.full_name;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Disparador en auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- =======================================================
+-- 12. SINCRONIZACIÓN DE USUARIOS PREVIOS DE AUTH A SHOPS
+-- =======================================================
+
+INSERT INTO public.shops (id, name, owner_email, subscription_status, plan_price, active)
+SELECT 
+  id,
+  COALESCE(raw_user_meta_data->>'shop_name', 'Taller de ' || COALESCE(raw_user_meta_data->>'full_name', email)),
+  email,
+  'pending_payment',
+  15000.00,
+  FALSE
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.users (id, shop_id, email, full_name, role, can_view_financials)
+SELECT 
+  id,
+  id,
+  email,
+  COALESCE(raw_user_meta_data->>'full_name', email),
+  'owner',
+  TRUE
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
