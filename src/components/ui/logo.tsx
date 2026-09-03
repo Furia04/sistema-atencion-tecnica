@@ -20,7 +20,7 @@ export function Logo({
       {/* Emblem SVG Logo */}
       <div
         style={{ width: size, height: size }}
-        className="rounded-xl bg-gradient-to-br from-primary via-primary-container to-purple-600 p-0.5 shadow-md flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
+        className="rounded-lg bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 p-0.5 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"
       >
         <svg
           viewBox="0 0 512 512"
