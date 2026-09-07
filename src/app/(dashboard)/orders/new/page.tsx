@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase/client';
 import { CustomFieldDefinition, DeviceCategoryTemplate, ServiceOrder } from '@/types';
 import { CustomFieldsRenderer } from '@/components/orders/custom-fields-renderer';
 import { PatternLockInput } from '@/components/orders/pattern-lock-input';
+import { DeviceAutocomplete } from '@/components/orders/device-autocomplete';
 
 const DEFAULT_TEMPLATES: DeviceCategoryTemplate[] = [
   {
@@ -387,34 +388,17 @@ export default function NewOrderIntakePage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/50">
-                  <div>
-                    <label className="block font-bold text-on-surface-variant mb-1 uppercase text-[10px]">
-                      Marca *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={deviceBrand}
-                      onChange={(e) => setDeviceBrand(e.target.value)}
-                      placeholder="Ej: Apple"
-                      className="w-full bg-surface border border-outline-variant rounded-lg px-2.5 py-1.5 text-xs text-on-surface"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold text-on-surface-variant mb-1 uppercase text-[10px]">
-                      Modelo *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={deviceModel}
-                      onChange={(e) => setDeviceModel(e.target.value)}
-                      placeholder="Ej: iPhone 13 Pro"
-                      className="w-full bg-surface border border-outline-variant rounded-lg px-2.5 py-1.5 text-xs text-on-surface"
-                    />
-                  </div>
-                  <div className="col-span-2">
+                <div className="space-y-3">
+                  <DeviceAutocomplete
+                    brand={deviceBrand}
+                    model={deviceModel}
+                    onChangeBrand={setDeviceBrand}
+                    onChangeModel={setDeviceModel}
+                    deviceType={deviceType}
+                    disabled={saving}
+                  />
+
+                  <div className="bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/50">
                     <label className="block font-bold text-on-surface-variant mb-1 uppercase text-[10px]">
                       IMEI / Nº Serie
                     </label>
@@ -423,7 +407,7 @@ export default function NewOrderIntakePage() {
                       value={serialImei}
                       onChange={(e) => setSerialImei(e.target.value)}
                       placeholder="Ej: 358923019842019"
-                      className="w-full bg-surface border border-outline-variant rounded-lg px-2.5 py-1.5 font-mono text-xs text-on-surface"
+                      className="w-full bg-surface border border-outline-variant rounded-lg px-2.5 py-1.5 font-mono text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50"
                     />
                   </div>
                 </div>
