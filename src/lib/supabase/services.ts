@@ -181,11 +181,57 @@ export async function deductInventoryStock(inventoryItemId: string, quantity: nu
 }
 
 // =======================================================
+// ENRIQUECER ÓRDENES CON CLIENTES Y DISPOSITIVOS (ANTI-ERROR 400)
+// =======================================================
+
+async function populateOrdersRelations(rawOrders: any[]): Promise<any[]> {
+  if (!rawOrders || rawOrders.length === 0) return [];
+
+  const customerIds = Array.from(new Set(rawOrders.map((o: any) => o.customer_id).filter(Boolean)));
+  const deviceIds = Array.from(new Set(rawOrders.map((o: any) => o.device_id).filter(Boolean)));
+
+  const customerMap = new Map<string, any>();
+  if (customerIds.length > 0) {
+    try {
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, full_name, phone, document_id')
+        .in('id', customerIds);
+      (customers || []).forEach((c: any) => customerMap.set(c.id, c));
+    } catch (e) {
+      console.warn('Error al cargar clientes en lote:', e);
+    }
+  }
+
+  const deviceMap = new Map<string, any>();
+  if (deviceIds.length > 0) {
+    try {
+      const { data: devices } = await supabase
+        .from('devices')
+        .select('id, type, brand, model, serial_number, custom_attributes')
+        .in('id', deviceIds);
+      (devices || []).forEach((d: any) => deviceMap.set(d.id, d));
+    } catch (e) {
+      console.warn('Error al cargar dispositivos en lote:', e);
+    }
+  }
+
+  return rawOrders.map((ord: any) => ({
+    ...ord,
+    customers: ord.customers || customerMap.get(ord.customer_id) || null,
+    devices: ord.devices || deviceMap.get(ord.device_id) || null,
+  }));
+}
+
+// =======================================================
 // ÓRDENES DE SERVICIO (MULTI-TENANT REAL + LOCAL FALLBACK)
 // =======================================================
 
 export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
   try {
+    let sourceOrders: any[] = [];
+
+    // 1. Intentar consulta con JOIN directo
     const { data, error } = await supabase
       .from('service_orders')
       .select(`
@@ -194,6 +240,23 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
         devices ( type, brand, model, serial_number )
       `)
       .order('created_at', { ascending: false });
+
+    if (!error && data) {
+      sourceOrders = data;
+    } else {
+      if (error) {
+        console.warn('Supabase join directo falló (posible falta de FK o relación en PostgREST). Activando carga desacoplada anti-error 400:', error.message || error);
+      }
+      // 2. Fallback desacoplado: consultar tabla service_orders directamente
+      const { data: rawOrders, error: rawError } = await supabase
+        .from('service_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!rawError && rawOrders) {
+        sourceOrders = await populateOrdersRelations(rawOrders);
+      }
+    }
 
     let localOrders: ServiceOrder[] = [];
     if (typeof window !== 'undefined') {
@@ -205,7 +268,7 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       } catch (e) {}
     }
 
-    const dbOrders = (data || []).map((ord: any) => ({
+    const dbOrders = sourceOrders.map((ord: any) => ({
       id: ord.id,
       shop_id: ord.shop_id,
       tracking_code: ord.tracking_code,
@@ -237,6 +300,7 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
 
     return Array.from(orderMap.values());
   } catch (err) {
+    console.error('Error general en fetchServiceOrders:', err);
     return [];
   }
 }
@@ -450,11 +514,27 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       supabaseQuery = supabaseQuery.eq('tracking_code', codeQuery);
     }
 
+    let resultOrders: any[] = [];
+
     const { data, error } = await supabaseQuery.order('created_at', { ascending: false });
 
-    if (error) return [];
+    if (!error && data) {
+      resultOrders = data;
+    } else {
+      // Fallback desacoplado: consultar sin join y poblar relaciones
+      let rawQuery = supabase.from('service_orders').select('*');
+      if (customerIds.length > 0) {
+        rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),tracking_code.eq.${codeQuery}`);
+      } else {
+        rawQuery = rawQuery.eq('tracking_code', codeQuery);
+      }
+      const { data: rawData } = await rawQuery.order('created_at', { ascending: false });
+      if (rawData) {
+        resultOrders = await populateOrdersRelations(rawData);
+      }
+    }
 
-    return (data || []).map((ord: any) => ({
+    return resultOrders.map((ord: any) => ({
       id: ord.id,
       shop_id: ord.shop_id,
       tracking_code: ord.tracking_code,
