@@ -10,36 +10,69 @@ interface PhoneResult {
 
 const LOCAL_PHONE_CATALOG = phonesData as PhoneResult[];
 
+function cleanString(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function filterCatalog(query: string, brandFilter: string): PhoneResult[] {
+  const cleanQuery = cleanString(query);
+  const cleanBrand = cleanString(brandFilter);
+  const queryTokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+
+  return LOCAL_PHONE_CATALOG.filter((phone) => {
+    const cleanPhoneBrand = cleanString(phone.brand);
+    const cleanPhoneModel = cleanString(phone.model);
+    const cleanPhoneFull = cleanString(phone.full_name);
+    const fullTextLower = `${phone.brand} ${phone.model} ${phone.full_name}`.toLowerCase();
+
+    // Si hay filtro de marca explícito, verificar coincidencia de marca
+    if (cleanBrand) {
+      const matchesBrandFilter =
+        cleanPhoneBrand.includes(cleanBrand) || cleanBrand.includes(cleanPhoneBrand);
+      if (!matchesBrandFilter) return false;
+    }
+
+    if (!query) return true;
+
+    // 1. Coincidencia limpia sin espacios (ej: "a 12" -> "a12" coincide con "galaxya12")
+    if (cleanQuery && (cleanPhoneFull.includes(cleanQuery) || cleanPhoneModel.includes(cleanQuery))) {
+      return true;
+    }
+
+    // 2. Coincidencia por tokens (todas las palabras de la consulta deben estar presentes)
+    return queryTokens.every((token) => {
+      const cleanToken = cleanString(token);
+      return (
+        fullTextLower.includes(token) ||
+        (cleanToken.length > 0 && cleanPhoneFull.includes(cleanToken))
+      );
+    });
+  });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q')?.trim() || '';
   const brandFilter = searchParams.get('brand')?.trim() || '';
 
   if (!query && !brandFilter) {
-    // Si no hay consulta, devolver los más comunes de forma predeterminada
     return NextResponse.json({
-      results: LOCAL_PHONE_CATALOG.slice(0, 15),
+      results: LOCAL_PHONE_CATALOG.slice(0, 20),
       source: 'local_database',
     });
   }
 
-  const normalizedQuery = query.toLowerCase();
-  const normalizedBrand = brandFilter.toLowerCase();
+  // 1. Intentar buscar con el filtro de marca
+  let results = filterCatalog(query, brandFilter);
 
-  // Filtrar en la base de datos local JSON
-  const filtered = LOCAL_PHONE_CATALOG.filter((phone) => {
-    const matchesBrand = !normalizedBrand || phone.brand.toLowerCase() === normalizedBrand;
-    const matchesQuery =
-      !normalizedQuery ||
-      phone.full_name.toLowerCase().includes(normalizedQuery) ||
-      phone.model.toLowerCase().includes(normalizedQuery) ||
-      phone.brand.toLowerCase().includes(normalizedQuery);
-
-    return matchesBrand && matchesQuery;
-  });
+  // 2. Si con el filtro de marca no hay resultados (ej: se tenía la marca "Apple" seleccionada pero se buscó "A12"),
+  //    reintentar sin restricción de marca para no dejar la lista vacía al usuario
+  if (results.length === 0 && brandFilter && query) {
+    results = filterCatalog(query, '');
+  }
 
   return NextResponse.json({
-    results: filtered.slice(0, 50), // Máximo 50 sugerencias
+    results: results.slice(0, 50), // Máximo 50 sugerencias
     source: 'local_database',
   });
 }
