@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
-import { Search, Menu, LogOut } from 'lucide-react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Search, Menu, LogOut, Loader2 } from 'lucide-react';
 import { UserProfile } from '@/types';
+import { supabase } from '@/lib/supabase/client';
 
 interface HeaderProps {
   user: UserProfile;
@@ -11,6 +12,26 @@ interface HeaderProps {
 }
 
 export function Header({ user, onToggleSidebar }: HeaderProps) {
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        sessionStorage.clear();
+      }
+      router.push('/login');
+      router.refresh();
+    } catch (err) {
+      console.error('Error al cerrar sesión:', err);
+      router.push('/login');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
     <header className="sticky top-0 bg-surface border-b border-outline-variant flex justify-between items-center w-full h-16 px-gutter z-30 shrink-0">
       <div className="flex items-center gap-4 flex-1">
@@ -36,15 +57,20 @@ export function Header({ user, onToggleSidebar }: HeaderProps) {
 
       {/* Acciones del Header */}
       <div className="flex items-center gap-3">
-        {/* Enlace Salir / Iniciar Sesión */}
-        <Link
-          href="/login"
-          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-error hover:bg-surface-container-high px-3 py-1.5 rounded-lg border border-outline-variant/50 transition-colors font-semibold"
-          title="Cerrar Sesión / Cambiar de Usuario"
+        {/* Botón Cerrar Sesión Real */}
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-error hover:bg-surface-container-high px-3 py-1.5 rounded-lg border border-outline-variant/50 transition-colors font-semibold disabled:opacity-50"
+          title="Cerrar Sesión de forma segura"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Salir</span>
-        </Link>
+          {loggingOut ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-error" />
+          ) : (
+            <LogOut className="w-3.5 h-3.5" />
+          )}
+          <span className="hidden md:inline">{loggingOut ? 'Cerrando...' : 'Salir'}</span>
+        </button>
       </div>
     </header>
   );

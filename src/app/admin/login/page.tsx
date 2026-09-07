@@ -74,12 +74,9 @@ export default function SuperAdminLoginPage() {
         return;
       }
 
-      // 4. OTORGAR SESIÓN ADMIN Y REDIRIGIR
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('prorepair_admin_session', 'authenticated_superadmin');
-      }
-
+      // 4. REDIRIGIR A PANEL SUPERADMIN CON SESIÓN AUTÉNTICA
       router.push('/admin');
+      router.refresh();
     } catch (err: any) {
       setErrorMessage('Error al verificar privilegios de administrador.');
     } finally {

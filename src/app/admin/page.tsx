@@ -58,23 +58,58 @@ export default function SuperAdminDashboardPage() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const adminSession = sessionStorage.getItem('prorepair_admin_session');
-      if (adminSession !== 'authenticated_superadmin') {
+    async function verifySuperAdmin() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/admin/login');
+          return;
+        }
+
+        let isSuperAdmin =
+          user.user_metadata?.role === 'superadmin' ||
+          user.email === 'furiaortiz04@gmail.com' ||
+          (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL && user.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL);
+
+        if (!isSuperAdmin) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (profile?.role === 'superadmin') {
+            isSuperAdmin = true;
+          }
+        }
+
+        if (!isSuperAdmin) {
+          router.push('/admin/login?error=unauthorized');
+          return;
+        }
+
+        setAuthorized(true);
+        loadShops();
+      } catch (err) {
+        console.error('Error al validar sesión de SuperAdmin:', err);
         router.push('/admin/login');
-        return;
       }
-      setAuthorized(true);
     }
 
-    loadShops();
+    verifySuperAdmin();
   }, [router]);
 
-  const handleAdminLogout = () => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.removeItem('prorepair_admin_session');
+  const handleAdminLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        sessionStorage.clear();
+      }
+    } catch (e) {
+      console.error('Error al salir del admin:', e);
     }
     router.push('/admin/login');
+    router.refresh();
   };
 
   const handleToggleActiveStatus = async (shop: Shop) => {

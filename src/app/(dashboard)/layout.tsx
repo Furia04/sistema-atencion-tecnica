@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/dashboard/sidebar';
 import { Header } from '@/components/dashboard/header';
 import { Shop, UserProfile } from '@/types';
@@ -25,6 +26,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [userShop, setUserShop] = useState<Shop | null>(null);
@@ -35,40 +37,43 @@ export default function DashboardLayout({
     setLoading(true);
     try {
       const profile = await getCurrentUserProfile();
-      if (profile) {
-        setUserProfile(profile);
+      if (!profile) {
+        router.push('/login');
+        return;
+      }
 
-        const shopId = profile.shop_id || profile.id;
-        const cleanEmail = (profile.email || '').toLowerCase();
+      setUserProfile(profile);
 
-        // Consultar taller real desde la base de datos Supabase
-        const { data: dbShop } = await supabase
-          .from('shops')
-          .select('*')
-          .or(`id.eq.${shopId},owner_email.eq.${cleanEmail}`)
-          .maybeSingle();
+      const shopId = profile.shop_id || profile.id;
+      const cleanEmail = (profile.email || '').toLowerCase();
 
-        if (dbShop) {
-          setUserShop({
-            id: dbShop.id,
-            name: dbShop.name || 'Mi Taller',
-            owner_email: dbShop.owner_email || profile.email,
-            subscription_status: dbShop.subscription_status || 'pending_payment',
-            plan_price: Number(dbShop.plan_price) || 15000,
-            active: dbShop.active ?? false,
-            created_at: dbShop.created_at || new Date().toISOString(),
-          });
-        } else {
-          setUserShop({
-            id: shopId,
-            name: profile.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
-            owner_email: profile.email,
-            subscription_status: 'pending_payment',
-            plan_price: 15000,
-            active: false,
-            created_at: new Date().toISOString(),
-          });
-        }
+      // Consultar taller real desde la base de datos Supabase
+      const { data: dbShop } = await supabase
+        .from('shops')
+        .select('*')
+        .or(`id.eq.${shopId},owner_email.eq.${cleanEmail}`)
+        .maybeSingle();
+
+      if (dbShop) {
+        setUserShop({
+          id: dbShop.id,
+          name: dbShop.name || 'Mi Taller',
+          owner_email: dbShop.owner_email || profile.email,
+          subscription_status: dbShop.subscription_status || 'pending_payment',
+          plan_price: Number(dbShop.plan_price) || 15000,
+          active: dbShop.active ?? false,
+          created_at: dbShop.created_at || new Date().toISOString(),
+        });
+      } else {
+        setUserShop({
+          id: shopId,
+          name: profile.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
+          owner_email: profile.email,
+          subscription_status: 'pending_payment',
+          plan_price: 15000,
+          active: false,
+          created_at: new Date().toISOString(),
+        });
       }
     } catch (err) {
       console.error('Error al verificar estado de taller en Supabase:', err);
@@ -89,20 +94,20 @@ export default function DashboardLayout({
     ? (userShop.active === false && userShop.subscription_status === 'pending_payment')
     : false;
 
-  const defaultUserFallback: UserProfile = userProfile || {
-    id: 'user-guest',
-    email: '',
-    role: 'owner',
-    full_name: 'Usuario',
-    shop_id: '',
-    can_view_financials: true,
-  };
+  if (loading || !userProfile) {
+    return (
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-background text-on-surface gap-3">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="font-body-sm text-xs text-on-surface-variant">Verificando sesión segura...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface font-sans">
       {/* Sidebar Desplegable */}
       <Sidebar
-        user={defaultUserFallback}
+        user={userProfile}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
@@ -110,7 +115,7 @@ export default function DashboardLayout({
       {/* Contenedor Principal */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <Header
-          user={defaultUserFallback}
+          user={userProfile}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         />
 

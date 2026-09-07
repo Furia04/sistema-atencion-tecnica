@@ -25,15 +25,22 @@ export default function LoginPage() {
         password,
       });
 
-      if (error && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-        setErrorMessage(error.message);
+      if (error) {
+        setErrorMessage(error.message || 'Credenciales inválidas.');
+        setLoading(false);
+        return;
+      }
+
+      if (!data?.user) {
+        setErrorMessage('No se encontró el usuario.');
         setLoading(false);
         return;
       }
 
       router.push('/dashboard');
+      router.refresh();
     } catch (err: any) {
-      router.push('/dashboard');
+      setErrorMessage(err?.message || 'Error de conexión al autenticar.');
     } finally {
       setLoading(false);
     }

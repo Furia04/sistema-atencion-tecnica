@@ -229,9 +229,13 @@ async function populateOrdersRelations(rawOrders: any[]): Promise<any[]> {
 
 export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
   try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return [];
+
     let sourceOrders: any[] = [];
 
-    // 1. Intentar consulta con JOIN directo
+    // 1. Intentar consulta con JOIN directo aislada por taller
     const { data, error } = await supabase
       .from('service_orders')
       .select(`
@@ -239,6 +243,7 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
         customers ( full_name, phone, document_id ),
         devices ( type, brand, model, serial_number )
       `)
+      .eq('shop_id', shopId)
       .order('created_at', { ascending: false });
 
     if (!error && data) {
@@ -247,10 +252,11 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       if (error) {
         console.warn('Supabase join directo falló (posible falta de FK o relación en PostgREST). Activando carga desacoplada anti-error 400:', error.message || error);
       }
-      // 2. Fallback desacoplado: consultar tabla service_orders directamente
+      // 2. Fallback desacoplado: consultar tabla service_orders directamente aislada por taller
       const { data: rawOrders, error: rawError } = await supabase
         .from('service_orders')
         .select('*')
+        .eq('shop_id', shopId)
         .order('created_at', { ascending: false });
 
       if (!rawError && rawOrders) {
@@ -313,45 +319,18 @@ export async function createServiceOrderWithDevice(orderPayload: {
   const profile = await getCurrentUserProfile();
   let shopId = profile?.shop_id || profile?.id;
 
-  // 1. Obtener o crear un taller válido en Supabase para prevenir errores de clave foránea
+  // 1. Validar que el usuario pertenezca a un taller autenticado
   if (!shopId) {
-    const { data: anyShop } = await supabase.from('shops').select('id').limit(1).maybeSingle();
-    if (anyShop) {
-      shopId = anyShop.id;
-    }
+    throw new Error('Debe iniciar sesión para registrar una orden de servicio.');
   }
 
-  if (shopId) {
-    const { data: existingShop } = await supabase.from('shops').select('id').eq('id', shopId).maybeSingle();
-    if (!existingShop) {
-      await supabase.from('shops').upsert([{
-        id: shopId,
-        name: profile?.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
-        owner_email: profile?.email || 'taller@jatech.com',
-        subscription_status: 'active',
-        plan_price: 15000,
-        active: true,
-      }]);
-    }
-  } else {
-    const defaultShopId = '00000000-0000-0000-0000-000000000001';
-    await supabase.from('shops').upsert([{
-      id: defaultShopId,
-      name: 'Taller Principal',
-      owner_email: 'taller@jatech.com',
-      subscription_status: 'active',
-      plan_price: 15000,
-      active: true,
-    }]);
-    shopId = defaultShopId;
-  }
-
-  // 2. Insertar o recuperar Cliente
+  // 2. Insertar o recuperar Cliente dentro del mismo taller
   let customerId = '';
   if (orderPayload.customer.document_id) {
     const { data: existingCust } = await supabase
       .from('customers')
       .select('id')
+      .eq('shop_id', shopId)
       .eq('document_id', orderPayload.customer.document_id)
       .maybeSingle();
 
@@ -453,9 +432,14 @@ export async function updateServiceOrderStatus(
 
 export async function fetchCustomers(): Promise<Customer[]> {
   try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return [];
+
     const { data, error } = await supabase
       .from('customers')
       .select('*')
+      .eq('shop_id', shopId)
       .order('created_at', { ascending: false });
 
     if (error) return [];
@@ -471,9 +455,14 @@ export async function fetchCustomers(): Promise<Customer[]> {
 
 export async function fetchInventory(): Promise<InventoryItem[]> {
   try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return [];
+
     const { data, error } = await supabase
       .from('inventory')
       .select('*')
+      .eq('shop_id', shopId)
       .order('name', { ascending: true });
 
     if (error) return [];
@@ -492,6 +481,29 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
   if (!cleanQuery) return [];
 
   try {
+    // 1. Intentar mediante la función RPC segura de PostgreSQL (sin exponer datos internos)
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_order_tracking', {
+      p_query: cleanQuery,
+    });
+
+    if (!rpcError && rpcData && rpcData.length > 0) {
+      return rpcData.map((ord: any) => ({
+        id: ord.id,
+        tracking_code: ord.tracking_code,
+        status: ord.status,
+        reported_fault: ord.reported_fault,
+        technical_diagnosis: ord.technical_diagnosis,
+        estimated_completion: ord.estimated_completion,
+        final_price: ord.final_price,
+        created_at: ord.created_at,
+        customer_name: ord.customer_name || 'Cliente',
+        customer_phone: ord.customer_phone || '',
+        customer_document_id: ord.customer_document_id || '',
+        device_info: `${ord.device_type || 'Equipo'} · ${ord.device_brand || ''} ${ord.device_model || ''}`.trim(),
+      }));
+    }
+
+    // 2. Fallback de compatibilidad si la función RPC aún no se ejecutó en la base de datos
     const { data: customerData } = await supabase
       .from('customers')
       .select('id')

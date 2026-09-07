@@ -138,7 +138,10 @@ CREATE TABLE IF NOT EXISTS device_category_templates (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- =======================================================
 -- 10. SEGURIDAD A NIVEL DE FILA (ROW LEVEL SECURITY - RLS)
+-- =======================================================
+
 ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
@@ -147,21 +150,141 @@ ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS TOTALES PARA SHOPS Y USERS
+-- 10.1 FUNCIONES AUXILIARES PARA CONTROL DE ACCESO
+CREATE OR REPLACE FUNCTION public.get_current_shop_id()
+RETURNS UUID AS $$
+  SELECT shop_id FROM public.users WHERE id = auth.uid();
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.is_superadmin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'superadmin'
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+-- LIMPIEZA DE POLÍTICAS PREVIAS
 DROP POLICY IF EXISTS "Allow All Shops" ON shops;
-CREATE POLICY "Allow All Shops" ON shops FOR ALL USING (TRUE) WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Allow All Users" ON users;
-CREATE POLICY "Allow All Users" ON users FOR ALL USING (TRUE) WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Allow All Orders" ON service_orders;
-CREATE POLICY "Allow All Orders" ON service_orders FOR ALL USING (TRUE) WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Allow All Customers" ON customers;
-CREATE POLICY "Allow All Customers" ON customers FOR ALL USING (TRUE) WITH CHECK (TRUE);
-
 DROP POLICY IF EXISTS "Allow All Devices" ON devices;
-CREATE POLICY "Allow All Devices" ON devices FOR ALL USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Allow All Inventory" ON inventory;
+DROP POLICY IF EXISTS "Allow All Templates" ON device_category_templates;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Shops" ON shops;
+DROP POLICY IF EXISTS "Users Select Own Shop" ON shops;
+DROP POLICY IF EXISTS "Users Update Own Shop" ON shops;
+DROP POLICY IF EXISTS "Users Insert Own Shop" ON shops;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Users" ON users;
+DROP POLICY IF EXISTS "Users View Own Shop Members" ON users;
+DROP POLICY IF EXISTS "Users Update Own Profile" ON users;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Customers" ON customers;
+DROP POLICY IF EXISTS "Tenant Isolation Customers" ON customers;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Devices" ON devices;
+DROP POLICY IF EXISTS "Tenant Isolation Devices" ON devices;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Orders" ON service_orders;
+DROP POLICY IF EXISTS "Tenant Isolation Orders" ON service_orders;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Inventory" ON inventory;
+DROP POLICY IF EXISTS "Tenant Isolation Inventory" ON inventory;
+
+DROP POLICY IF EXISTS "Superadmin Full Access Templates" ON device_category_templates;
+DROP POLICY IF EXISTS "Tenant Isolation Templates" ON device_category_templates;
+
+-- 10.2 POLÍTICAS DE SHOPS (TALLERES)
+CREATE POLICY "Superadmin Full Access Shops" ON shops
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Users Select Own Shop" ON shops
+  FOR SELECT
+  USING (id = public.get_current_shop_id() OR id = auth.uid());
+
+CREATE POLICY "Users Update Own Shop" ON shops
+  FOR UPDATE
+  USING (id = public.get_current_shop_id() OR id = auth.uid())
+  WITH CHECK (id = public.get_current_shop_id() OR id = auth.uid());
+
+CREATE POLICY "Users Insert Own Shop" ON shops
+  FOR INSERT
+  WITH CHECK (id = auth.uid());
+
+-- 10.3 POLÍTICAS DE USERS (PERFILES)
+CREATE POLICY "Superadmin Full Access Users" ON users
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Users View Own Shop Members" ON users
+  FOR SELECT
+  USING (shop_id = public.get_current_shop_id() OR id = auth.uid());
+
+CREATE POLICY "Users Update Own Profile" ON users
+  FOR UPDATE
+  USING (id = auth.uid())
+  WITH CHECK (id = auth.uid());
+
+-- 10.4 POLÍTICAS DE CUSTOMERS (CLIENTES)
+CREATE POLICY "Superadmin Full Access Customers" ON customers
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Customers" ON customers
+  FOR ALL
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
+
+-- 10.5 POLÍTICAS DE DEVICES (DISPOSITIVOS)
+CREATE POLICY "Superadmin Full Access Devices" ON devices
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Devices" ON devices
+  FOR ALL
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
+
+-- 10.6 POLÍTICAS DE SERVICE_ORDERS (ÓRDENES DE SERVICIO)
+CREATE POLICY "Superadmin Full Access Orders" ON service_orders
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Orders" ON service_orders
+  FOR ALL
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
+
+-- 10.7 POLÍTICAS DE INVENTORY (INVENTARIO)
+CREATE POLICY "Superadmin Full Access Inventory" ON inventory
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Inventory" ON inventory
+  FOR ALL
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
+
+-- 10.8 POLÍTICAS DE DEVICE_CATEGORY_TEMPLATES (PLANTILLAS)
+CREATE POLICY "Superadmin Full Access Templates" ON device_category_templates
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Templates" ON device_category_templates
+  FOR ALL
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- =======================================================
 -- 11. TRIGGER AUTOMÁTICO AL REGISTRAR UN USUARIO EN AUTH
@@ -244,3 +367,60 @@ SELECT
   TRUE
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
+
+-- =======================================================
+-- 13. FUNCIÓN RPC PARA SEGUIMIENTO PÚBLICO SEGURO (B2C)
+-- =======================================================
+
+CREATE OR REPLACE FUNCTION public.get_public_order_tracking(p_query TEXT)
+RETURNS TABLE (
+  id UUID,
+  tracking_code TEXT,
+  shop_name TEXT,
+  shop_phone TEXT,
+  status order_status,
+  reported_fault TEXT,
+  technical_diagnosis TEXT,
+  estimated_completion TEXT,
+  final_price NUMERIC,
+  created_at TIMESTAMPTZ,
+  customer_name TEXT,
+  customer_document_id TEXT,
+  device_type TEXT,
+  device_brand TEXT,
+  device_model TEXT
+) AS $$
+DECLARE
+  clean_q TEXT;
+  code_q TEXT;
+BEGIN
+  clean_q := TRIM(UPPER(p_query));
+  code_q := CASE WHEN clean_q LIKE '#%' THEN clean_q ELSE '#' || clean_q END;
+
+  RETURN QUERY
+  SELECT 
+    so.id,
+    so.tracking_code,
+    s.name AS shop_name,
+    COALESCE(s.settings->>'phone', '') AS shop_phone,
+    so.status,
+    so.reported_fault,
+    so.technical_diagnosis,
+    so.estimated_completion,
+    so.final_price,
+    so.created_at,
+    c.full_name AS customer_name,
+    c.document_id AS customer_document_id,
+    d.type AS device_type,
+    d.brand AS device_brand,
+    d.model AS device_model
+  FROM public.service_orders so
+  JOIN public.shops s ON s.id = so.shop_id
+  JOIN public.customers c ON c.id = so.customer_id
+  JOIN public.devices d ON d.id = so.device_id
+  WHERE (so.tracking_code = code_q OR UPPER(c.document_id) = clean_q)
+  ORDER BY so.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_public_order_tracking(TEXT) TO anon, authenticated;
