@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import { Customer, DeviceCategoryTemplate, InventoryItem, ServiceOrder, Shop, UserProfile } from '@/types';
+import { Customer, Device, DeviceCategoryTemplate, InventoryItem, ServiceOrder, Shop, UserProfile } from '@/types';
 
 // =======================================================
 // OBTENER PERFIL Y TALLER (TENANT) DEL USUARIO AUTENTICADO
@@ -565,5 +565,133 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
     }));
   } catch (err) {
     return [];
+  }
+}
+
+// =======================================================
+// GESTIÓN DE CLIENTES Y EQUIPOS (REAL SUPABASE)
+// =======================================================
+
+export async function createCustomer(customerData: {
+  full_name: string;
+  phone: string;
+  document_id?: string;
+  email?: string;
+}): Promise<Customer> {
+  const profile = await getCurrentUserProfile();
+  const shopId = profile?.shop_id || profile?.id;
+  if (!shopId) throw new Error('Debe iniciar sesión para registrar clientes.');
+
+  const { data, error } = await supabase
+    .from('customers')
+    .insert([{
+      shop_id: shopId,
+      full_name: customerData.full_name.trim(),
+      phone: customerData.phone.trim(),
+      document_id: customerData.document_id?.trim() || null,
+      email: customerData.email?.trim() || null,
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchCustomerDevicesAndOrders(customerId: string): Promise<{
+  devices: Device[];
+  orders: ServiceOrder[];
+}> {
+  try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return { devices: [], orders: [] };
+
+    const { data: devicesData } = await supabase
+      .from('devices')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+
+    const { data: rawOrders } = await supabase
+      .from('service_orders')
+      .select(`
+        *,
+        devices ( type, brand, model, serial_number )
+      `)
+      .eq('shop_id', shopId)
+      .eq('customer_id', customerId)
+      .order('created_at', { ascending: false });
+
+    const orders = (rawOrders || []).map((ord: any) => ({
+      id: ord.id,
+      shop_id: ord.shop_id,
+      tracking_code: ord.tracking_code,
+      device_id: ord.device_id,
+      customer_id: ord.customer_id,
+      status: ord.status,
+      reported_fault: ord.reported_fault,
+      technical_diagnosis: ord.technical_diagnosis,
+      final_price: ord.final_price,
+      created_at: ord.created_at,
+      device_info: ord.devices ? `${ord.devices.type} · ${ord.devices.brand} ${ord.devices.model}` : 'Equipo',
+    }));
+
+    return {
+      devices: devicesData || [],
+      orders: orders || [],
+    };
+  } catch (err) {
+    return { devices: [], orders: [] };
+  }
+}
+
+// =======================================================
+// GESTIÓN DE INVENTARIO Y STOCK (REAL SUPABASE)
+// =======================================================
+
+export async function createInventoryItem(itemData: {
+  sku: string;
+  name: string;
+  category: string;
+  stock: number;
+  min_stock: number;
+  cost?: number;
+  price: number;
+}): Promise<InventoryItem> {
+  const profile = await getCurrentUserProfile();
+  const shopId = profile?.shop_id || profile?.id;
+  if (!shopId) throw new Error('Debe iniciar sesión para agregar repuestos.');
+
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert([{
+      shop_id: shopId,
+      sku: itemData.sku.trim(),
+      name: itemData.name.trim(),
+      category: itemData.category.trim(),
+      stock: Math.max(0, itemData.stock),
+      min_stock: Math.max(0, itemData.min_stock),
+      cost: itemData.cost || 0,
+      price: itemData.price || 0,
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateInventoryStock(itemId: string, newStock: number): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('inventory')
+      .update({ stock: Math.max(0, newStock) })
+      .eq('id', itemId);
+
+    return !error;
+  } catch (err) {
+    return false;
   }
 }
