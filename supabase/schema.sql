@@ -111,6 +111,9 @@ CREATE TABLE IF NOT EXISTS service_orders (
   estimated_completion TEXT,
   estimated_cost NUMERIC(10,2) DEFAULT 0.00,
   final_price NUMERIC(10,2) DEFAULT 0.00,
+  warranty_period TEXT,
+  warranty_until TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -368,6 +371,11 @@ SELECT
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
+-- COMPATIBILIDAD DE COLUMNAS DE GARANTÍA
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS warranty_period TEXT;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS warranty_until TIMESTAMPTZ;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
 -- =======================================================
 -- 13. FUNCIÓN RPC PARA SEGUIMIENTO PÚBLICO SEGURO (B2C)
 -- =======================================================
@@ -383,6 +391,9 @@ RETURNS TABLE (
   technical_diagnosis TEXT,
   estimated_completion TEXT,
   final_price NUMERIC,
+  warranty_period TEXT,
+  warranty_until TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ,
   customer_name TEXT,
   customer_document_id TEXT,
@@ -408,6 +419,9 @@ BEGIN
     so.technical_diagnosis,
     so.estimated_completion,
     so.final_price,
+    so.warranty_period,
+    so.warranty_until,
+    so.delivered_at,
     so.created_at,
     c.full_name AS customer_name,
     c.document_id AS customer_document_id,

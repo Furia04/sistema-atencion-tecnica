@@ -26,6 +26,7 @@ import {
   Loader2,
   FolderOpen,
   Send,
+  ShieldCheck,
 } from 'lucide-react';
 import { PatternLockInput } from '@/components/orders/pattern-lock-input';
 import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
@@ -94,27 +95,58 @@ export default function ServiceOrdersPage() {
     const previousOrder = orders.find(o => o.id === editingOrder.id);
     const statusChangedToReady = previousOrder?.status !== 'para_entregar' && editingOrder.status === 'para_entregar';
 
+    let calculatedWarrantyUntil = editingOrder.warranty_until;
+    let calculatedDeliveredAt = editingOrder.delivered_at;
+
+    if (editingOrder.status === 'para_entregar' || (editingOrder.status as string) === 'entregado') {
+      if (!calculatedDeliveredAt) {
+        calculatedDeliveredAt = new Date().toISOString();
+      }
+      if (editingOrder.warranty_period && editingOrder.warranty_period !== 'Sin garantía') {
+        const daysMap: Record<string, number> = {
+          '30 días': 30,
+          '60 días': 60,
+          '90 días': 90,
+          '6 meses': 180,
+          '12 meses': 365,
+        };
+        const daysToAdd = daysMap[editingOrder.warranty_period] || 30;
+        const d = new Date();
+        d.setDate(d.getDate() + daysToAdd);
+        calculatedWarrantyUntil = d.toISOString();
+      }
+    }
+
     try {
       await updateServiceOrderStatus(
         editingOrder.id,
         editingOrder.status,
         editingOrder.technical_diagnosis,
-        editingOrder.final_price
+        editingOrder.final_price,
+        editingOrder.warranty_period || '30 días',
+        calculatedWarrantyUntil,
+        calculatedDeliveredAt
       );
     } catch (err) {
       console.warn('Actualización de orden realizada');
     }
 
+    const updatedOrder: ServiceOrder = {
+      ...editingOrder,
+      warranty_period: editingOrder.warranty_period || (editingOrder.status === 'para_entregar' ? '30 días' : undefined),
+      warranty_until: calculatedWarrantyUntil,
+      delivered_at: calculatedDeliveredAt,
+    };
+
     setOrders((prev) =>
-      prev.map((o) => (o.id === editingOrder.id ? editingOrder : o))
+      prev.map((o) => (o.id === editingOrder.id ? updatedOrder : o))
     );
 
-    const savedOrder = editingOrder;
     setEditingOrder(null);
 
     // Si cambió el estado a "Para Entregar", sugerir enviar notificación por WhatsApp
     if (statusChangedToReady) {
-      setWhatsappNotifyOrder(savedOrder);
+      setWhatsappNotifyOrder(updatedOrder);
     }
   };
 
@@ -441,6 +473,42 @@ export default function ServiceOrdersPage() {
                     placeholder="Ej: 25000"
                     className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-2.5 text-xs text-on-surface font-mono font-bold"
                   />
+                </div>
+
+                {/* OTORGAR GARANTÍA DE SERVICIO (AL ENTREGAR) */}
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3.5 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="block font-bold text-emerald-400 uppercase text-[11px] flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" /> Garantía de Servicio (Al Entregar)
+                    </label>
+                    <span className="text-[10px] text-emerald-300 font-semibold bg-emerald-500/20 px-2 py-0.5 rounded">
+                      {editingOrder.warranty_period || '30 días (Estándar)'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {['30 días', '60 días', '90 días', '6 meses', '12 meses', 'Sin garantía'].map((period) => (
+                      <button
+                        key={period}
+                        type="button"
+                        onClick={() =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            warranty_period: period,
+                          })
+                        }
+                        className={`py-1.5 px-2 text-[11px] font-bold rounded-lg border transition-all ${
+                          (editingOrder.warranty_period || '30 días') === period
+                            ? 'bg-emerald-500 text-black border-emerald-400 font-extrabold shadow'
+                            : 'bg-surface-container-high border-outline-variant text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant italic">
+                    La garantía otorgada se imprimirá en el ticket de entrega y aparecerá en la página de seguimiento del cliente.
+                  </p>
                 </div>
 
                 {/* PATRÓN DE DESBLOQUEO TÁCTIL (SOLO VISIBLE EN LA ORDEN DIGITAL) */}

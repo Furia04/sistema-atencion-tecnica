@@ -288,6 +288,9 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       estimated_completion: ord.estimated_completion,
       estimated_cost: ord.estimated_cost,
       final_price: ord.final_price,
+      warranty_period: ord.warranty_period,
+      warranty_until: ord.warranty_until,
+      delivered_at: ord.delivered_at,
       created_at: ord.created_at,
       customer_name: ord.customers?.full_name || 'Cliente sin nombre',
       customer_phone: ord.customers?.phone || '',
@@ -409,16 +412,25 @@ export async function updateServiceOrderStatus(
   orderId: string,
   status: string,
   technicalDiagnosis?: string,
-  finalPrice?: number
+  finalPrice?: number,
+  warrantyPeriod?: string,
+  warrantyUntil?: string,
+  deliveredAt?: string
 ) {
+  const updateData: any = {
+    status,
+    technical_diagnosis: technicalDiagnosis,
+    final_price: finalPrice,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (warrantyPeriod !== undefined) updateData.warranty_period = warrantyPeriod;
+  if (warrantyUntil !== undefined) updateData.warranty_until = warrantyUntil;
+  if (deliveredAt !== undefined) updateData.delivered_at = deliveredAt;
+
   const { data, error } = await supabase
     .from('service_orders')
-    .update({
-      status,
-      technical_diagnosis: technicalDiagnosis,
-      final_price: finalPrice,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', orderId)
     .select();
 
@@ -495,6 +507,9 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
         technical_diagnosis: ord.technical_diagnosis,
         estimated_completion: ord.estimated_completion,
         final_price: ord.final_price,
+        warranty_period: ord.warranty_period,
+        warranty_until: ord.warranty_until,
+        delivered_at: ord.delivered_at,
         created_at: ord.created_at,
         customer_name: ord.customer_name || 'Cliente',
         customer_phone: ord.customer_phone || '',
@@ -557,6 +572,9 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       technical_diagnosis: ord.technical_diagnosis,
       estimated_completion: ord.estimated_completion,
       final_price: ord.final_price,
+      warranty_period: ord.warranty_period,
+      warranty_until: ord.warranty_until,
+      delivered_at: ord.delivered_at,
       created_at: ord.created_at,
       customer_name: ord.customers?.full_name || 'Cliente',
       customer_phone: ord.customers?.phone || '',
@@ -693,5 +711,182 @@ export async function updateInventoryStock(itemId: string, newStock: number): Pr
     return !error;
   } catch (err) {
     return false;
+  }
+}
+
+// =======================================================
+// GESTIÓN DE DISPOSITIVOS Y EQUIPOS (REAL SUPABASE)
+// =======================================================
+
+export async function fetchDevices(): Promise<(Device & { customer_name?: string; customer_phone?: string })[]> {
+  try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return [];
+
+    const { data: rawDevices, error } = await supabase
+      .from('devices')
+      .select(`
+        *,
+        customers ( full_name, phone )
+      `)
+      .eq('shop_id', shopId)
+      .order('created_at', { ascending: false });
+
+    if (error || !rawDevices) return [];
+
+    return rawDevices.map((d: any) => ({
+      id: d.id,
+      shop_id: d.shop_id,
+      customer_id: d.customer_id,
+      type: d.type,
+      brand: d.brand,
+      model: d.model,
+      serial_number: d.serial_number || '',
+      custom_attributes: d.custom_attributes || {},
+      created_at: d.created_at,
+      customer_name: d.customers?.full_name || 'Cliente sin nombre',
+      customer_phone: d.customers?.phone || '',
+    }));
+  } catch (err) {
+    console.error('Error al obtener dispositivos:', err);
+    return [];
+  }
+}
+
+export async function createDevice(deviceData: {
+  customer_id: string;
+  type: string;
+  brand: string;
+  model: string;
+  serial_number?: string;
+  custom_attributes?: Record<string, any>;
+}): Promise<Device> {
+  const profile = await getCurrentUserProfile();
+  const shopId = profile?.shop_id || profile?.id;
+  if (!shopId) throw new Error('Debe iniciar sesión para registrar equipos.');
+
+  const { data, error } = await supabase
+    .from('devices')
+    .insert([{
+      shop_id: shopId,
+      customer_id: deviceData.customer_id,
+      type: deviceData.type.trim(),
+      brand: deviceData.brand.trim(),
+      model: deviceData.model.trim(),
+      serial_number: deviceData.serial_number?.trim() || null,
+      custom_attributes: deviceData.custom_attributes || {},
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateDevice(
+  deviceId: string,
+  deviceData: {
+    type?: string;
+    brand?: string;
+    model?: string;
+    serial_number?: string;
+    custom_attributes?: Record<string, any>;
+  }
+): Promise<boolean> {
+  try {
+    const updatePayload: any = {};
+    if (deviceData.type !== undefined) updatePayload.type = deviceData.type.trim();
+    if (deviceData.brand !== undefined) updatePayload.brand = deviceData.brand.trim();
+    if (deviceData.model !== undefined) updatePayload.model = deviceData.model.trim();
+    if (deviceData.serial_number !== undefined) updatePayload.serial_number = deviceData.serial_number.trim() || null;
+    if (deviceData.custom_attributes !== undefined) updatePayload.custom_attributes = deviceData.custom_attributes;
+
+    const { error } = await supabase
+      .from('devices')
+      .update(updatePayload)
+      .eq('id', deviceId);
+
+    return !error;
+  } catch (err) {
+    return false;
+  }
+}
+
+export async function fetchDeviceHistory(deviceId: string): Promise<{
+  device: (Device & { customer_name?: string; customer_phone?: string }) | null;
+  orders: ServiceOrder[];
+}> {
+  try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) return { device: null, orders: [] };
+
+    const { data: deviceData } = await supabase
+      .from('devices')
+      .select(`
+        *,
+        customers ( full_name, phone )
+      `)
+      .eq('shop_id', shopId)
+      .eq('id', deviceId)
+      .maybeSingle();
+
+    if (!deviceData) return { device: null, orders: [] };
+
+    const formattedDevice = {
+      id: deviceData.id,
+      shop_id: deviceData.shop_id,
+      customer_id: deviceData.customer_id,
+      type: deviceData.type,
+      brand: deviceData.brand,
+      model: deviceData.model,
+      serial_number: deviceData.serial_number || '',
+      custom_attributes: deviceData.custom_attributes || {},
+      created_at: deviceData.created_at,
+      customer_name: deviceData.customers?.full_name || 'Cliente',
+      customer_phone: deviceData.customers?.phone || '',
+    };
+
+    const { data: rawOrders } = await supabase
+      .from('service_orders')
+      .select(`
+        *,
+        customers ( full_name, phone, document_id )
+      `)
+      .eq('shop_id', shopId)
+      .eq('device_id', deviceId)
+      .order('created_at', { ascending: false });
+
+    const formattedOrders: ServiceOrder[] = (rawOrders || []).map((ord: any) => ({
+      id: ord.id,
+      shop_id: ord.shop_id,
+      tracking_code: ord.tracking_code,
+      device_id: ord.device_id,
+      customer_id: ord.customer_id,
+      technician_id: ord.technician_id,
+      status: ord.status,
+      reported_fault: ord.reported_fault,
+      technical_diagnosis: ord.technical_diagnosis,
+      internal_notes: ord.internal_notes,
+      estimated_completion: ord.estimated_completion,
+      estimated_cost: ord.estimated_cost,
+      final_price: ord.final_price,
+      warranty_period: ord.warranty_period,
+      warranty_until: ord.warranty_until,
+      delivered_at: ord.delivered_at,
+      created_at: ord.created_at,
+      customer_name: ord.customers?.full_name || 'Cliente',
+      customer_phone: ord.customers?.phone || '',
+      customer_document_id: ord.customers?.document_id || '',
+      device_info: `${deviceData.type} · ${deviceData.brand} ${deviceData.model}`,
+    }));
+
+    return {
+      device: formattedDevice,
+      orders: formattedOrders,
+    };
+  } catch (err) {
+    return { device: null, orders: [] };
   }
 }

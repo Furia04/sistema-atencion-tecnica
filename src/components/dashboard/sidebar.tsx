@@ -10,6 +10,7 @@ import {
   Wrench,
   Users,
   Package,
+  Smartphone,
   Settings,
   ShieldAlert,
   UserCheck,
@@ -29,6 +30,7 @@ export function Sidebar({ user, isOpen, onClose }: SidebarProps) {
     { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard },
     { href: '/orders', label: 'Órdenes de Servicio', icon: Wrench },
     { href: '/customers', label: 'Clientes', icon: Users },
+    { href: '/devices', label: 'Dispositivos', icon: Smartphone },
     { href: '/inventory', label: 'Inventario', icon: Package },
     { href: '/settings', label: 'Configuración', icon: Settings },
   ];

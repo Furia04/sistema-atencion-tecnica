@@ -15,6 +15,7 @@ import {
   AlertCircle,
   FileText,
   Search,
+  ShieldCheck,
 } from 'lucide-react';
 import { OrderStatus, ServiceOrder } from '@/types';
 import { fetchPublicOrdersByDocumentIdOrCode } from '@/lib/supabase/services';
@@ -391,6 +392,35 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
                     </p>
                   </div>
                 </div>
+
+                {/* Tarjeta de Garantía Otorgada */}
+                {selectedOrder.warranty_period && (
+                  <div className="mt-4 bg-emerald-500/10 rounded-lg p-4 border border-emerald-500/30 flex items-start gap-4">
+                    <ShieldCheck className="w-6 h-6 text-emerald-400 mt-0.5 shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-title-sm text-title-sm text-emerald-400 font-bold">
+                          Garantía de Servicio Técnico
+                        </h4>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                          {selectedOrder.warranty_period}
+                        </span>
+                      </div>
+                      <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">
+                        Tu reparación cuenta con cobertura oficial de garantía sobre la mano de obra y repuestos aplicados.
+                      </p>
+                      {selectedOrder.warranty_until && (
+                        <p className="font-mono text-xs text-emerald-300 font-bold mt-2 pt-2 border-t border-emerald-500/20">
+                          Válida hasta: {new Date(selectedOrder.warranty_until).toLocaleDateString('es-AR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Detalles e Información de Entrega */}

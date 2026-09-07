@@ -114,6 +114,18 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
               </div>
             </div>
 
+            {order.warranty_period && (
+              <div className="py-1 px-2 bg-slate-100 rounded border border-slate-400 text-center space-y-0.5 my-1">
+                <span className="font-bold text-[9px] uppercase text-slate-800">GARANTÍA OTORGADA:</span>
+                <p className="font-extrabold text-[11px] text-slate-900">{order.warranty_period}</p>
+                {order.warranty_until && (
+                  <p className="text-[9px] text-slate-600">
+                    Vence: {new Date(order.warranty_until).toLocaleDateString('es-AR')}
+                  </p>
+                )}
+              </div>
+            )}
+
             {order.final_price && order.final_price > 0 ? (
               <div className="flex justify-between font-bold text-sm py-1 border-b border-dashed border-black">
                 <span>PRECIO ESTIMADO:</span>
@@ -164,6 +176,14 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
               <p className="font-semibold text-xs text-slate-900">Falla Reportada: {order.reported_fault}</p>
               {order.technical_diagnosis && (
                 <p className="text-xs text-slate-700 mt-1">Informe Técnico: {order.technical_diagnosis}</p>
+              )}
+              {order.warranty_period && (
+                <div className="mt-2 pt-2 border-t border-slate-300 flex justify-between items-center text-xs font-bold text-slate-900">
+                  <span>GARANTÍA DE SERVICIO OTORGADA: {order.warranty_period}</span>
+                  {order.warranty_until && (
+                    <span>Vencimiento: {new Date(order.warranty_until).toLocaleDateString('es-AR')}</span>
+                  )}
+                </div>
               )}
             </div>
 

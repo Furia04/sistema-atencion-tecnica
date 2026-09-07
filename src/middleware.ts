@@ -64,6 +64,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/orders') ||
     pathname.startsWith('/customers') ||
     pathname.startsWith('/inventory') ||
+    pathname.startsWith('/devices') ||
     pathname.startsWith('/settings');
 
   const isAdminRoute = pathname.startsWith('/admin') && pathname !== '/admin/login';

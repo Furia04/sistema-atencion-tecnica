@@ -70,6 +70,9 @@ export interface ServiceOrder {
   estimated_completion?: string;
   estimated_cost?: number;
   final_price?: number;
+  warranty_period?: string;
+  warranty_until?: string;
+  delivered_at?: string;
   created_at: string;
   // Joins para frontend
   customer_name?: string;
