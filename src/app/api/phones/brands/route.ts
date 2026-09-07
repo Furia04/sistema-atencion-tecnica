@@ -8,11 +8,14 @@ const POPULAR_BRANDS = [
   'Google',
   'Huawei',
   'Honor',
+  'Realme',
   'LG',
   'Sony',
   'Nokia',
   'TCL',
   'ZTE',
+  'Infinix',
+  'Tecno',
 ];
 
 export async function GET() {

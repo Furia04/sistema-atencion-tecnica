@@ -21,7 +21,7 @@ interface DeviceAutocompleteProps {
   disabled?: boolean;
 }
 
-const POPULAR_BRANDS = ['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Google', 'Huawei', 'LG'];
+const POPULAR_BRANDS = ['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Google', 'Honor', 'Realme', 'LG'];
 
 export function DeviceAutocomplete({
   brand,
