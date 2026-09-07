@@ -50,16 +50,26 @@ function filterCatalog(query: string, brandFilter: string): PhoneResult[] {
   });
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q')?.trim() || '';
   const brandFilter = searchParams.get('brand')?.trim() || '';
 
   if (!query && !brandFilter) {
-    return NextResponse.json({
-      results: LOCAL_PHONE_CATALOG.slice(0, 20),
-      source: 'local_database',
-    });
+    return NextResponse.json(
+      {
+        results: LOCAL_PHONE_CATALOG.slice(0, 30),
+        source: 'local_database',
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   }
 
   // 1. Intentar buscar con el filtro de marca
@@ -71,8 +81,15 @@ export async function GET(request: NextRequest) {
     results = filterCatalog(query, '');
   }
 
-  return NextResponse.json({
-    results: results.slice(0, 50), // Máximo 50 sugerencias
-    source: 'local_database',
-  });
+  return NextResponse.json(
+    {
+      results: results.slice(0, 150), // Permitir ver todos los modelos de la marca
+      source: 'local_database',
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      },
+    }
+  );
 }
