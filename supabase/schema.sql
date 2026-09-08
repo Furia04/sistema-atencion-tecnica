@@ -405,13 +405,16 @@ ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAM
 -- 13. FUNCIÓN RPC PARA SEGUIMIENTO PÚBLICO SEGURO (B2C)
 -- =======================================================
 
+DROP FUNCTION IF EXISTS public.get_public_order_tracking(TEXT);
+DROP FUNCTION IF EXISTS public.get_public_order_tracking(p_query TEXT);
+
 CREATE OR REPLACE FUNCTION public.get_public_order_tracking(p_query TEXT)
 RETURNS TABLE (
   id UUID,
   tracking_code TEXT,
   shop_name TEXT,
   shop_phone TEXT,
-  status order_status,
+  status TEXT,
   reported_fault TEXT,
   technical_diagnosis TEXT,
   estimated_completion TEXT,
@@ -441,7 +444,7 @@ BEGIN
     so.tracking_code,
     s.name AS shop_name,
     COALESCE(s.settings->>'phone', '') AS shop_phone,
-    so.status,
+    so.status::text AS status,
     so.reported_fault,
     so.technical_diagnosis,
     so.estimated_completion,

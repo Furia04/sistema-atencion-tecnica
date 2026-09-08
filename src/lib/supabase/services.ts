@@ -567,10 +567,15 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
   if (!cleanQuery) return [];
 
   try {
-    // 1. Intentar mediante la función RPC segura de PostgreSQL (sin exponer datos internos)
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_order_tracking', {
-      p_query: cleanQuery,
-    });
+    // 1. Intentar mediante la función RPC segura de PostgreSQL (p_query o query)
+    let rpcRes = await supabase.rpc('get_public_order_tracking', { p_query: cleanQuery });
+    if (rpcRes.error) {
+      // Fallback a parámetro 'query' por compatibilidad
+      rpcRes = await supabase.rpc('get_public_order_tracking', { query: cleanQuery } as any);
+    }
+
+    const rpcData = rpcRes.data;
+    const rpcError = rpcRes.error;
 
     if (!rpcError && rpcData && rpcData.length > 0) {
       return rpcData.map((ord: any) => ({
