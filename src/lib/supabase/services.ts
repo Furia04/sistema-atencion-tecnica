@@ -345,7 +345,7 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
 export async function createServiceOrderWithDevice(orderPayload: {
   customer: { full_name: string; phone: string; document_id?: string; email?: string };
   device: { type: string; brand: string; model: string; serial_number?: string; custom_attributes?: any };
-  order: { reported_fault: string; estimated_cost?: number; final_price?: number };
+  order: { reported_fault: string; estimated_cost?: number; final_price?: number; tracking_code?: string };
 }) {
   const profile = await getCurrentUserProfile();
   let shopId = profile?.shop_id || profile?.id;
@@ -410,14 +410,17 @@ export async function createServiceOrderWithDevice(orderPayload: {
     throw devErr;
   }
 
-  // 4. Insertar Orden de Servicio
-  const randomCode = `#WO-${Math.floor(1000 + Math.random() * 9000)}`;
+  // 4. Insertar Orden de Servicio con el Código de Seguimiento Exacto
+  let finalTrackingCode = orderPayload.order.tracking_code?.trim() || `#WO-${Math.floor(1000 + Math.random() * 9000)}`;
+  if (!finalTrackingCode.startsWith('#')) {
+    finalTrackingCode = `#${finalTrackingCode}`;
+  }
 
   const { data: newOrder, error: ordErr } = await supabase
     .from('service_orders')
     .insert([{
       shop_id: shopId,
-      tracking_code: randomCode,
+      tracking_code: finalTrackingCode,
       device_id: newDevice.id,
       customer_id: customerId,
       status: 'recibido',

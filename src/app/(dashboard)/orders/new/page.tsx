@@ -140,6 +140,7 @@ export default function NewOrderIntakePage() {
       },
       order: {
         reported_fault: faultDescription.trim(),
+        tracking_code: `#${ticketCode}`,
       },
     };
 
@@ -206,6 +207,7 @@ export default function NewOrderIntakePage() {
       },
       order: {
         reported_fault: faultDescription.trim(),
+        tracking_code: `#${ticketCode}`,
       },
     };
 
