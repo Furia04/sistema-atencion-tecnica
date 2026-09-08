@@ -1,5 +1,5 @@
 import { supabase } from './client';
-import { Customer, Device, DeviceCategoryTemplate, InventoryItem, ServiceOrder, Shop, UserProfile } from '@/types';
+import { Customer, Device, DeviceCategoryTemplate, InventoryItem, OrderSpare, ServiceOrder, Shop, UserProfile } from '@/types';
 
 // =======================================================
 // OBTENER PERFIL Y TALLER (TENANT) DEL USUARIO AUTENTICADO
@@ -467,6 +467,20 @@ export async function updateServiceOrderStatus(
     .select();
 
   if (error) throw error;
+
+  // Si el estado pasa a 'entregado', convertir todos los repuestos reservados a 'consumed' (cierre de venta)
+  if (status === 'entregado') {
+    try {
+      await supabase
+        .from('order_spares')
+        .update({ status: 'consumed', updated_at: new Date().toISOString() })
+        .eq('order_id', orderId)
+        .eq('status', 'reserved');
+    } catch (e) {
+      console.warn('Error al actualizar estado de repuestos a consumed:', e);
+    }
+  }
+
   return data;
 }
 
@@ -920,5 +934,129 @@ export async function fetchDeviceHistory(deviceId: string): Promise<{
     };
   } catch (err) {
     return { device: null, orders: [] };
+  }
+}
+
+// =======================================================
+// GESTIÓN DE REPUESTOS EN CUSTODIA (ORDER_SPARES)
+// =======================================================
+
+export async function fetchOrderSpares(orderId: string): Promise<OrderSpare[]> {
+  try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId || !orderId) return [];
+
+    const { data, error } = await supabase
+      .from('order_spares')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true });
+
+    if (error || !data) return [];
+    return data;
+  } catch (err) {
+    return [];
+  }
+}
+
+export async function assignSpareToOrder(payload: {
+  order_id: string;
+  device_id?: string;
+  inventory_item_id: string;
+  quantity?: number;
+}): Promise<OrderSpare | null> {
+  try {
+    const profile = await getCurrentUserProfile();
+    const shopId = profile?.shop_id || profile?.id;
+    if (!shopId) throw new Error('Debe iniciar sesión para asignar repuestos.');
+
+    const qty = payload.quantity || 1;
+
+    // 1. Consultar el repuesto en el inventario
+    const { data: item } = await supabase
+      .from('inventory')
+      .select('*')
+      .eq('id', payload.inventory_item_id)
+      .maybeSingle();
+
+    if (!item) throw new Error('El repuesto no existe en el inventario.');
+
+    // 2. Crear el registro en order_spares (estado 'reserved' = almacenado en equipo)
+    const { data: spareRecord, error: spareErr } = await supabase
+      .from('order_spares')
+      .insert([{
+        shop_id: shopId,
+        order_id: payload.order_id,
+        device_id: payload.device_id || null,
+        inventory_item_id: item.id,
+        sku: item.sku,
+        name: item.name,
+        quantity: qty,
+        unit_cost: item.cost || 0,
+        unit_price: item.price || 0,
+        status: 'reserved',
+      }])
+      .select()
+      .single();
+
+    if (spareErr) throw spareErr;
+
+    // 3. Descontar del stock disponible y aumentar el stock reservado en inventario
+    const newStock = Math.max(0, (item.stock || 0) - qty);
+    const newReserved = (item.reserved_stock || 0) + qty;
+
+    await supabase
+      .from('inventory')
+      .update({ stock: newStock, reserved_stock: newReserved })
+      .eq('id', item.id);
+
+    return spareRecord;
+  } catch (err) {
+    console.error('Error al asignar repuesto a la orden:', err);
+    return null;
+  }
+}
+
+export async function returnSpareToInventory(spareId: string): Promise<boolean> {
+  try {
+    const { data: spare } = await supabase
+      .from('order_spares')
+      .select('*')
+      .eq('id', spareId)
+      .maybeSingle();
+
+    if (!spare) return false;
+
+    // 1. Cambiar estado a 'returned'
+    await supabase
+      .from('order_spares')
+      .update({ status: 'returned', updated_at: new Date().toISOString() })
+      .eq('id', spareId);
+
+    // 2. Reintegrar la cantidad al stock disponible de inventario
+    if (spare.inventory_item_id) {
+      const { data: item } = await supabase
+        .from('inventory')
+        .select('stock, reserved_stock')
+        .eq('id', spare.inventory_item_id)
+        .maybeSingle();
+
+      if (item) {
+        const restoredStock = (item.stock || 0) + spare.quantity;
+        const restoredReserved = Math.max(0, (item.reserved_stock || 0) - spare.quantity);
+
+        await supabase
+          .from('inventory')
+          .update({ stock: restoredStock, reserved_stock: restoredReserved })
+          .eq('id', spare.inventory_item_id);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error al devolver repuesto al inventario:', err);
+    return false;
   }
 }

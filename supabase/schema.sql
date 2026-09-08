@@ -129,11 +129,15 @@ CREATE TABLE IF NOT EXISTS inventory (
   name TEXT NOT NULL,
   category TEXT NOT NULL,
   stock INT NOT NULL DEFAULT 0,
+  reserved_stock INT NOT NULL DEFAULT 0,
   min_stock INT NOT NULL DEFAULT 2,
   cost NUMERIC(10,2) DEFAULT 0.00,
   price NUMERIC(10,2) DEFAULT 0.00,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- COMPATIBILIDAD DE COLUMNA RESERVED_STOCK EN INVENTARIO
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS reserved_stock INT DEFAULT 0;
 
 -- 9. TABLA DE PLANTILLAS POR CATEGORÍA DE DISPOSITIVO (DEVICE_CATEGORY_TEMPLATES)
 CREATE TABLE IF NOT EXISTS device_category_templates (
@@ -142,6 +146,23 @@ CREATE TABLE IF NOT EXISTS device_category_templates (
   category_name TEXT NOT NULL,
   fields JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. TABLA DE REPUESTOS EN CUSTODIA / INSTALADOS EN EQUIPOS (ORDER_SPARES)
+CREATE TABLE IF NOT EXISTS order_spares (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  order_id UUID NOT NULL REFERENCES service_orders(id) ON DELETE CASCADE,
+  device_id UUID REFERENCES devices(id) ON DELETE CASCADE,
+  inventory_item_id UUID REFERENCES inventory(id) ON DELETE SET NULL,
+  sku TEXT,
+  name TEXT NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  unit_cost NUMERIC(10,2) DEFAULT 0.00,
+  unit_price NUMERIC(10,2) DEFAULT 0.00,
+  status TEXT DEFAULT 'reserved', -- 'reserved' (almacenado en equipo), 'consumed' (entregado), 'returned' (devuelto a stock)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- =======================================================
@@ -155,6 +176,7 @@ ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE device_category_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_spares ENABLE ROW LEVEL SECURITY;
 
 -- 10.1 FUNCIONES AUXILIARES PARA CONTROL DE ACCESO
 CREATE OR REPLACE FUNCTION public.get_current_shop_id()

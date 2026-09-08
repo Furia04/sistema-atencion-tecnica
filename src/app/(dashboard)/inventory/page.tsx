@@ -75,6 +75,7 @@ export default function InventoryPage() {
 
   // CÁLCULOS EN TIEMPO REAL DESDE LA BASE DE DATOS DEL TENANT
   const totalStockUnits = inventory.reduce((acc, item) => acc + (item.stock || 0), 0);
+  const totalReservedUnits = inventory.reduce((acc, item) => acc + (item.reserved_stock || 0), 0);
   const lowStockCount = inventory.filter((i) => i.stock <= i.min_stock).length;
   const totalCostValue = inventory.reduce((acc, item) => acc + (item.cost || 0) * (item.stock || 0), 0);
   const totalPotentialProfit = inventory.reduce(
@@ -184,11 +185,18 @@ export default function InventoryPage() {
                 </span>
                 <Package className="w-5 h-5 text-primary" />
               </div>
-              <div className="font-display-lg text-3xl font-bold text-on-surface font-mono-data mt-2">
-                {totalStockUnits}
+              <div className="flex items-baseline gap-2 mt-2">
+                <div className="font-display-lg text-3xl font-bold text-on-surface font-mono-data">
+                  {totalStockUnits}
+                </div>
+                {totalReservedUnits > 0 && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Repuestos instalados en equipos pendientes de entrega">
+                    +{totalReservedUnits} en taller
+                  </span>
+                )}
               </div>
               <div className="font-body-sm text-xs text-on-surface-variant mt-1">
-                {inventory.length} repuestos distintos
+                {inventory.length} repuestos ({totalStockUnits} disps. / {totalReservedUnits} reserv.)
               </div>
             </div>
 
@@ -331,7 +339,8 @@ export default function InventoryPage() {
                       <th className="p-4">SKU / Código</th>
                       <th className="p-4">Nombre del Repuesto</th>
                       <th className="p-4">Categoría</th>
-                      <th className="p-4 text-center">Ajuste de Stock</th>
+                      <th className="p-4 text-center">Stock Disponible</th>
+                      <th className="p-4 text-center">En Equipos (Taller)</th>
                       <th className="p-4">Costo Compra</th>
                       <th className="p-4">Precio Venta</th>
                     </tr>
@@ -340,6 +349,7 @@ export default function InventoryPage() {
                     {filteredItems.map((item) => {
                       const isLow = item.stock <= item.min_stock;
                       const isUpdating = stockUpdatingId === item.id;
+                      const reservedCount = item.reserved_stock || 0;
 
                       return (
                         <tr
@@ -397,6 +407,15 @@ export default function InventoryPage() {
                                 </span>
                               )}
                             </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            {reservedCount > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 font-sans" title="Unidades instaladas en equipos en proceso de reparación">
+                                🟡 {reservedCount} un. en custodia
+                              </span>
+                            ) : (
+                              <span className="text-on-surface-variant/40 text-xs">0</span>
+                            )}
                           </td>
                           <td className="p-4 font-mono font-bold text-on-surface-variant">
                             {canSeeMoney ? `$${(item.cost || 0).toLocaleString('es-AR')}` : '--'}

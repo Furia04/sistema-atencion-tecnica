@@ -91,9 +91,25 @@ export interface InventoryItem {
   name: string;
   category: string;
   stock: number;
+  reserved_stock?: number;
   min_stock: number;
   cost?: number;
   price: number;
+  created_at: string;
+}
+
+export interface OrderSpare {
+  id: string;
+  shop_id: string;
+  order_id: string;
+  device_id?: string;
+  inventory_item_id?: string;
+  sku?: string;
+  name: string;
+  quantity: number;
+  unit_cost: number;
+  unit_price: number;
+  status: 'reserved' | 'consumed' | 'returned';
   created_at: string;
 }
 

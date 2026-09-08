@@ -21,13 +21,15 @@ import {
   CheckCircle2,
   Edit,
   Clock,
+  Package,
 } from 'lucide-react';
-import { Customer, Device, ServiceOrder } from '@/types';
+import { Customer, Device, OrderSpare, ServiceOrder } from '@/types';
 import {
   fetchDevices,
   fetchCustomers,
   createDevice,
   fetchDeviceHistory,
+  fetchOrderSpares,
   updateDevice,
 } from '@/lib/supabase/services';
 
@@ -52,7 +54,7 @@ export default function DevicesPage() {
   // Drawer / Modal para Historial del Dispositivo
   const [selectedDeviceHistory, setSelectedDeviceHistory] = useState<{
     device: (Device & { customer_name?: string; customer_phone?: string }) | null;
-    orders: ServiceOrder[];
+    orders: (ServiceOrder & { spares?: OrderSpare[] })[];
   } | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -82,7 +84,17 @@ export default function DevicesPage() {
     setLoadingHistory(true);
     try {
       const historyData = await fetchDeviceHistory(deviceId);
-      setSelectedDeviceHistory(historyData);
+      if (historyData?.orders) {
+        const ordersWithSpares = await Promise.all(
+          historyData.orders.map(async (ord) => {
+            const spares = await fetchOrderSpares(ord.id);
+            return { ...ord, spares };
+          })
+        );
+        setSelectedDeviceHistory({ ...historyData, orders: ordersWithSpares });
+      } else {
+        setSelectedDeviceHistory(historyData);
+      }
     } catch (err) {
       console.error('Error al cargar historial del equipo:', err);
     } finally {
@@ -623,6 +635,34 @@ export default function DevicesPage() {
                                   Vence: {new Date(ord.warranty_until).toLocaleDateString('es-AR')}
                                 </span>
                               )}
+                            </div>
+                          )}
+
+                          {ord.spares && ord.spares.length > 0 && (
+                            <div className="bg-surface-container rounded-lg p-2.5 border border-outline-variant/40 space-y-1.5 mt-2">
+                              <span className="font-label-caps text-[10px] font-bold text-on-surface-variant uppercase flex items-center gap-1">
+                                <Package className="w-3.5 h-3.5 text-primary" /> Repuestos Instalados en Equipo
+                              </span>
+                              <div className="space-y-1">
+                                {ord.spares.map((sp) => (
+                                  <div key={sp.id} className="flex items-center justify-between text-[11px]">
+                                    <span className="font-semibold text-on-surface">
+                                      {sp.name} ({sp.sku}) x{sp.quantity}
+                                    </span>
+                                    <span
+                                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        sp.status === 'reserved'
+                                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                          : sp.status === 'consumed'
+                                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                          : 'bg-surface-container-highest text-on-surface-variant line-through'
+                                      }`}
+                                    >
+                                      {sp.status === 'reserved' ? '🟡 En Custodia' : sp.status === 'consumed' ? '🟢 Consumido' : '⚪ Deuelto'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
 

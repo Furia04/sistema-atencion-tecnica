@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   Plus,
@@ -13,17 +13,27 @@ import {
   CheckCircle2,
   TrendingUp,
   EyeOff,
+  ShieldCheck,
+  RotateCcw,
+  Loader2,
+  Clock,
 } from 'lucide-react';
-import { InventoryItem, ServiceOrder, UserProfile } from '@/types';
-import { deductInventoryStock } from '@/lib/supabase/services';
+import { InventoryItem, OrderSpare, ServiceOrder, UserProfile } from '@/types';
+import {
+  fetchOrderSpares,
+  assignSpareToOrder,
+  returnSpareToInventory,
+} from '@/lib/supabase/services';
 
 export interface BudgetItem {
   id: string;
   inventory_item_id?: string;
+  spare_id?: string;
   description: string;
   unit_cost: number;
   unit_price: number;
   quantity: number;
+  status?: 'reserved' | 'consumed' | 'returned';
 }
 
 interface BudgetCalculatorProps {
@@ -54,6 +64,36 @@ export function BudgetCalculator({
   const [laborCost, setLaborCost] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
+  const [loadingSpares, setLoadingSpares] = useState<boolean>(false);
+  const [assigningSpare, setAssigningSpare] = useState<boolean>(false);
+
+  useEffect(() => {
+    async function loadSpares() {
+      if (!order?.id) return;
+      setLoadingSpares(true);
+      try {
+        const dbSpares = await fetchOrderSpares(order.id);
+        const mappedItems: BudgetItem[] = dbSpares
+          .filter((s) => s.status !== 'returned')
+          .map((s) => ({
+            id: s.id,
+            spare_id: s.id,
+            inventory_item_id: s.inventory_item_id,
+            description: `${s.name} ${s.sku ? `(${s.sku})` : ''}`,
+            unit_cost: Number(s.unit_cost) || 0,
+            unit_price: Number(s.unit_price) || 0,
+            quantity: s.quantity || 1,
+            status: s.status,
+          }));
+        setItems(mappedItems);
+      } catch (err) {
+        console.error('Error al cargar repuestos en custodia:', err);
+      } finally {
+        setLoadingSpares(false);
+      }
+    }
+    loadSpares();
+  }, [order?.id]);
 
   const totalPartsCost = items.reduce(
     (sum, item) => sum + item.unit_cost * item.quantity,
@@ -66,7 +106,6 @@ export function BudgetCalculator({
 
   const subtotal = totalPartsPrice + laborCost;
   const finalPrice = Math.max(0, subtotal - discount);
-  const estimatedProfit = finalPrice - totalPartsCost;
 
   const handleAddInventoryItem = async () => {
     if (!selectedInventoryId) return;
@@ -74,21 +113,47 @@ export function BudgetCalculator({
     const invItem = inventoryList.find((i) => i.id === selectedInventoryId);
     if (!invItem) return;
 
-    const newItem: BudgetItem = {
-      id: `b_${Date.now()}`,
-      inventory_item_id: invItem.id,
-      description: invItem.name,
-      unit_cost: invItem.cost || 0,
-      unit_price: invItem.price || 0,
-      quantity: 1,
-    };
+    setAssigningSpare(true);
+    try {
+      if (order?.id) {
+        // Guardar repuesto reservado en custodia en la base de datos real
+        const assigned = await assignSpareToOrder({
+          order_id: order.id,
+          device_id: order.device_id,
+          inventory_item_id: invItem.id,
+          quantity: 1,
+        });
 
-    setItems((prev) => [...prev, newItem]);
-    setSelectedInventoryId('');
-
-    // Descontar automáticamente del stock de inventario real en Supabase
-    if (invItem.id) {
-      await deductInventoryStock(invItem.id, 1);
+        if (assigned) {
+          const newItem: BudgetItem = {
+            id: assigned.id,
+            spare_id: assigned.id,
+            inventory_item_id: invItem.id,
+            description: `${invItem.name} (${invItem.sku})`,
+            unit_cost: invItem.cost || 0,
+            unit_price: invItem.price || 0,
+            quantity: 1,
+            status: 'reserved',
+          };
+          setItems((prev) => [...prev, newItem]);
+        }
+      } else {
+        const newItem: BudgetItem = {
+          id: `b_${Date.now()}`,
+          inventory_item_id: invItem.id,
+          description: invItem.name,
+          unit_cost: invItem.cost || 0,
+          unit_price: invItem.price || 0,
+          quantity: 1,
+          status: 'reserved',
+        };
+        setItems((prev) => [...prev, newItem]);
+      }
+      setSelectedInventoryId('');
+    } catch (err) {
+      console.error('Error al asignar repuesto:', err);
+    } finally {
+      setAssigningSpare(false);
     }
   };
 
@@ -106,13 +171,21 @@ export function BudgetCalculator({
       unit_cost: price * 0.5,
       unit_price: price,
       quantity: 1,
+      status: 'reserved',
     };
 
     setItems((prev) => [...prev, newItem]);
   };
 
-  const handleRemoveItem = (itemId: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
+  const handleRemoveItem = async (targetItem: BudgetItem) => {
+    if (targetItem.spare_id) {
+      try {
+        await returnSpareToInventory(targetItem.spare_id);
+      } catch (err) {
+        console.error('Error al devolver repuesto a inventario:', err);
+      }
+    }
+    setItems((prev) => prev.filter((i) => i.id !== targetItem.id));
   };
 
   const handleQuantityChange = (itemId: string, qty: number) => {
@@ -205,19 +278,30 @@ export function BudgetCalculator({
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/60"
+                className="flex flex-col sm:flex-row sm:items-center justify-between bg-surface-container-lowest p-3 rounded-xl border border-outline-variant/60 gap-2"
               >
                 <div className="flex items-center gap-3">
-                  <Package className="w-4 h-4 text-primary" />
+                  <Package className="w-4 h-4 text-primary shrink-0" />
                   <div>
-                    <div className="font-bold text-on-surface">{item.description}</div>
-                    <div className="text-[10px] text-on-surface-variant font-mono">
+                    <div className="font-bold text-on-surface flex items-center gap-2 flex-wrap">
+                      <span>{item.description}</span>
+                      {item.status === 'consumed' ? (
+                        <span className="font-label-caps text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Consumido (Entregado)
+                        </span>
+                      ) : (
+                        <span className="font-label-caps text-[9px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Almacenado en Equipo (En Custodia)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-on-surface-variant font-mono mt-0.5">
                       Costo: ${item.unit_cost.toLocaleString('es-AR')} • Venta: ${item.unit_price.toLocaleString('es-AR')}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/40">
                   <div className="flex items-center gap-1">
                     <span className="font-bold text-[11px]">Cant:</span>
                     <input
@@ -230,10 +314,11 @@ export function BudgetCalculator({
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleRemoveItem(item.id)}
-                    className="p-1 text-error hover:bg-error/20 rounded transition-colors"
+                    onClick={() => handleRemoveItem(item)}
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-error hover:bg-error/20 rounded-lg border border-error/30 transition-colors"
+                    title="Devolver repuesto al stock de inventario"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <RotateCcw className="w-3.5 h-3.5" /> Devolver a Inventario
                   </button>
                 </div>
               </div>
