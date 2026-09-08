@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xyzcompany.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'public-anon-key';
+
+// Cliente de Supabase en servidor de Next.js
+const supabaseServer = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false },
+});
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -12,19 +20,30 @@ export async function GET(request: Request) {
   const cleanQuery = query.trim().toUpperCase();
   const codeWithHash = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
   const codeWithoutHash = cleanQuery.replace(/^#/, '');
+  const digitsOnly = cleanQuery.replace(/[^0-9]/g, '');
 
   try {
     // 1. Buscar clientes que coincidan con el DNI / Documento ingresado
-    const { data: customerData } = await supabase
+    const { data: customerData } = await supabaseServer
       .from('customers')
       .select('id')
       .eq('document_id', cleanQuery);
 
     const customerIds = (customerData || []).map((c: any) => c.id);
-    const trackingFilters = `tracking_code.eq.${codeWithHash},tracking_code.eq.${codeWithoutHash},tracking_code.ilike.%${codeWithoutHash}%`;
 
-    // 2. Consultar directamente service_orders sin llamadas RPC
-    let rawQuery = supabase.from('service_orders').select('*');
+    // 2. Construir filtros de búsqueda flexibles por código, número o ID
+    const trackingFiltersArray = [
+      `tracking_code.eq.${codeWithHash}`,
+      `tracking_code.eq.${codeWithoutHash}`,
+      `tracking_code.ilike.%${codeWithoutHash}%`,
+      digitsOnly.length >= 3 ? `tracking_code.ilike.%${digitsOnly}%` : null,
+      `id.eq.${cleanQuery}`,
+    ].filter(Boolean);
+
+    const trackingFilters = trackingFiltersArray.join(',');
+
+    // 3. Consultar service_orders directamente
+    let rawQuery = supabaseServer.from('service_orders').select('*');
     if (customerIds.length > 0) {
       rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
     } else {
@@ -37,15 +56,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ orders: [] });
     }
 
-    // 3. Poblar relaciones de clientes, dispositivos y talleres de forma desacoplada
+    // 4. Poblar relaciones de clientes, dispositivos y talleres de forma desacoplada
     const customerIdList = Array.from(new Set(dbOrders.map((o: any) => o.customer_id).filter(Boolean)));
     const deviceIdList = Array.from(new Set(dbOrders.map((o: any) => o.device_id).filter(Boolean)));
     const shopIdList = Array.from(new Set(dbOrders.map((o: any) => o.shop_id).filter(Boolean)));
 
     const [custRes, devRes, shopRes] = await Promise.all([
-      customerIdList.length > 0 ? supabase.from('customers').select('*').in('id', customerIdList) : { data: [] },
-      deviceIdList.length > 0 ? supabase.from('devices').select('*').in('id', deviceIdList) : { data: [] },
-      shopIdList.length > 0 ? supabase.from('shops').select('*').in('id', shopIdList) : { data: [] },
+      customerIdList.length > 0 ? supabaseServer.from('customers').select('*').in('id', customerIdList) : { data: [] },
+      deviceIdList.length > 0 ? supabaseServer.from('devices').select('*').in('id', deviceIdList) : { data: [] },
+      shopIdList.length > 0 ? supabaseServer.from('shops').select('*').in('id', shopIdList) : { data: [] },
     ]);
 
     const custMap = new Map((custRes.data || []).map((c: any) => [c.id, c]));

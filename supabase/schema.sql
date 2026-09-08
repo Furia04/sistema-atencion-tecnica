@@ -314,6 +314,31 @@ CREATE POLICY "Tenant Isolation Templates" ON device_category_templates
   USING (shop_id = public.get_current_shop_id())
   WITH CHECK (shop_id = public.get_current_shop_id());
 
+-- 10.9 POLÍTICAS PÚBLICAS DE LECTURA PARA SEGUIMIENTO B2C
+DROP POLICY IF EXISTS "Public Read Service Orders" ON service_orders;
+CREATE POLICY "Public Read Service Orders" ON service_orders
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Public Read Customers" ON customers;
+CREATE POLICY "Public Read Customers" ON customers
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Public Read Devices" ON devices;
+CREATE POLICY "Public Read Devices" ON devices
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Public Read Shops" ON shops;
+CREATE POLICY "Public Read Shops" ON shops
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
 -- =======================================================
 -- 11. TRIGGER AUTOMÁTICO AL REGISTRAR UN USUARIO EN AUTH
 -- =======================================================

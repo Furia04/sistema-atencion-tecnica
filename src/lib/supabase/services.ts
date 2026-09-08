@@ -585,6 +585,7 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       const storedStr = localStorage.getItem('prorepair_local_orders');
       if (storedStr) {
         const localOrders: ServiceOrder[] = JSON.parse(storedStr);
+        const digitsOnly = cleanQuery.replace(/[^0-9]/g, '');
         const matched = localOrders.filter((o) => {
           const cleanCode = (o.tracking_code || '').toUpperCase().replace(/^#/, '');
           const targetCode = cleanQuery.replace(/^#/, '');
@@ -592,7 +593,8 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
             cleanCode === targetCode ||
             (o.tracking_code || '').toUpperCase() === cleanQuery ||
             (o.customer_document_id || '').toUpperCase() === cleanQuery ||
-            o.id === cleanQuery
+            o.id === cleanQuery ||
+            (digitsOnly.length >= 3 && cleanCode.includes(digitsOnly))
           );
         });
         if (matched.length > 0) {
