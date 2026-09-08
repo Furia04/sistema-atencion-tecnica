@@ -429,9 +429,11 @@ RETURNS TABLE (
 DECLARE
   clean_q TEXT;
   code_q TEXT;
+  raw_q TEXT;
 BEGIN
   clean_q := TRIM(UPPER(p_query));
   code_q := CASE WHEN clean_q LIKE '#%' THEN clean_q ELSE '#' || clean_q END;
+  raw_q := REGEXP_REPLACE(clean_q, '^#', '');
 
   RETURN QUERY
   SELECT 
@@ -457,7 +459,15 @@ BEGIN
   JOIN public.shops s ON s.id = so.shop_id
   JOIN public.customers c ON c.id = so.customer_id
   JOIN public.devices d ON d.id = so.device_id
-  WHERE (so.tracking_code = code_q OR UPPER(c.document_id) = clean_q)
+  WHERE (
+    so.tracking_code = clean_q
+    OR so.tracking_code = code_q
+    OR UPPER(so.tracking_code) = clean_q
+    OR UPPER(so.tracking_code) = code_q
+    OR UPPER(REGEXP_REPLACE(so.tracking_code, '^#', '')) = raw_q
+    OR UPPER(c.document_id) = clean_q
+    OR so.id::text = clean_q
+  )
   ORDER BY so.created_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -91,6 +91,8 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
         return 1;
       case 'para_entregar':
         return 2;
+      case 'entregado':
+        return 3;
       case 'abandonado':
         return -1;
       default:
@@ -110,6 +112,8 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
         return { label: 'ESPERANDO CLIENTE', bg: 'bg-teal-500/20 text-teal-400 border-teal-500/30' };
       case 'para_entregar':
         return { label: 'LISTO PARA RETIRAR', bg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' };
+      case 'entregado':
+        return { label: 'EQUIPO ENTREGADO', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
       case 'abandonado':
         return { label: 'ABANDONADO / CANCELADO', bg: 'bg-red-500/20 text-red-400 border-red-500/30' };
       default:
@@ -129,6 +133,8 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
         return 'Hemos generado la cotización o diagnóstico de reparación y estamos esperando tu respuesta.';
       case 'para_entregar':
         return '¡Tu equipo ya está listo! Puedes pasar por la sucursal a retirarlo en nuestro horario de atención.';
+      case 'entregado':
+        return 'El equipo ha sido entregado exitosamente al cliente junto a su comprobante de garantía.';
       case 'abandonado':
         return 'La orden fue archivada o abandonada.';
       default:

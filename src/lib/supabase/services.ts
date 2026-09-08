@@ -599,7 +599,10 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       .eq('document_id', cleanQuery);
 
     const customerIds = (customerData || []).map((c: any) => c.id);
-    const codeQuery = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
+    const codeWithHash = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
+    const codeWithoutHash = cleanQuery.replace(/^#/, '');
+
+    const trackingFilters = `tracking_code.eq.${codeWithHash},tracking_code.eq.${codeWithoutHash},tracking_code.ilike.%${codeWithoutHash}%`;
 
     let supabaseQuery = supabase
       .from('service_orders')
@@ -610,29 +613,52 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       `);
 
     if (customerIds.length > 0) {
-      supabaseQuery = supabaseQuery.or(`customer_id.in.(${customerIds.join(',')}),tracking_code.eq.${codeQuery}`);
+      supabaseQuery = supabaseQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
     } else {
-      supabaseQuery = supabaseQuery.eq('tracking_code', codeQuery);
+      supabaseQuery = supabaseQuery.or(trackingFilters);
     }
 
     let resultOrders: any[] = [];
 
     const { data, error } = await supabaseQuery.order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       resultOrders = data;
     } else {
       // Fallback desacoplado: consultar sin join y poblar relaciones
       let rawQuery = supabase.from('service_orders').select('*');
       if (customerIds.length > 0) {
-        rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),tracking_code.eq.${codeQuery}`);
+        rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
       } else {
-        rawQuery = rawQuery.eq('tracking_code', codeQuery);
+        rawQuery = rawQuery.or(trackingFilters);
       }
       const { data: rawData } = await rawQuery.order('created_at', { ascending: false });
-      if (rawData) {
+      if (rawData && rawData.length > 0) {
         resultOrders = await populateOrdersRelations(rawData);
       }
+    }
+
+    // Fallback adicional en localStorage para entornos locales/demo
+    if (resultOrders.length === 0 && typeof window !== 'undefined') {
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        if (storedStr) {
+          const localOrders: ServiceOrder[] = JSON.parse(storedStr);
+          const matched = localOrders.filter((o) => {
+            const cleanCode = (o.tracking_code || '').toUpperCase().replace(/^#/, '');
+            const targetCode = cleanQuery.replace(/^#/, '');
+            return (
+              cleanCode === targetCode ||
+              (o.tracking_code || '').toUpperCase() === cleanQuery ||
+              (o.customer_document_id || '').toUpperCase() === cleanQuery ||
+              o.id === cleanQuery
+            );
+          });
+          if (matched.length > 0) {
+            return matched;
+          }
+        }
+      } catch (e) {}
     }
 
     return resultOrders.map((ord: any) => ({
@@ -650,10 +676,10 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       warranty_until: ord.warranty_until,
       delivered_at: ord.delivered_at,
       created_at: ord.created_at,
-      customer_name: ord.customers?.full_name || 'Cliente',
-      customer_phone: ord.customers?.phone || '',
-      customer_document_id: ord.customers?.document_id || '',
-      device_info: `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
+      customer_name: ord.customers?.full_name || ord.customer_name || 'Cliente',
+      customer_phone: ord.customers?.phone || ord.customer_phone || '',
+      customer_document_id: ord.customers?.document_id || ord.customer_document_id || '',
+      device_info: ord.device_info || `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
     }));
   } catch (err) {
     return [];
