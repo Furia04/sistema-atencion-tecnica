@@ -25,8 +25,11 @@ BEGIN
       'esperando_repuesto',
       'esperando_cliente',
       'para_entregar',
+      'entregado',
       'abandonado'
     );
+  ELSE
+    ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'entregado';
   END IF;
 END $$;
 

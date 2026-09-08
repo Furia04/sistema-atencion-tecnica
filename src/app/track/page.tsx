@@ -102,8 +102,12 @@ export default function TrackByDniPage() {
         return { step: 2, label: 'Esperando Resp. Cliente', color: 'text-purple-300', bg: 'bg-purple-900/30' };
       case 'para_entregar':
         return { step: 3, label: '¡Listo para Retirar!', color: 'text-emerald-400', bg: 'bg-emerald-500/20' };
+      case 'entregado':
+        return { step: 4, label: 'Entregado al Cliente', color: 'text-emerald-300', bg: 'bg-emerald-950' };
       case 'abandonado':
         return { step: 4, label: 'Orden Vencida', color: 'text-error', bg: 'bg-error-container/30' };
+      default:
+        return { step: 1, label: 'En Proceso', color: 'text-slate-300', bg: 'bg-slate-800' };
     }
   };
 

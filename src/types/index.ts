@@ -4,6 +4,7 @@ export type OrderStatus =
   | 'esperando_repuesto'
   | 'esperando_cliente'
   | 'para_entregar'
+  | 'entregado'
   | 'abandonado';
 
 export type UserRole = 'owner' | 'technician' | 'superadmin';

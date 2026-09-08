@@ -98,11 +98,14 @@ export default function ServiceOrdersPage() {
     let calculatedWarrantyUntil = editingOrder.warranty_until;
     let calculatedDeliveredAt = editingOrder.delivered_at;
 
-    if (editingOrder.status === 'para_entregar' || (editingOrder.status as string) === 'entregado') {
+    const isDeliveredOrReady = editingOrder.status === 'para_entregar' || editingOrder.status === 'entregado';
+    const effectiveWarrantyPeriod = editingOrder.warranty_period || (isDeliveredOrReady ? '30 días' : undefined);
+
+    if (isDeliveredOrReady) {
       if (!calculatedDeliveredAt) {
         calculatedDeliveredAt = new Date().toISOString();
       }
-      if (editingOrder.warranty_period && editingOrder.warranty_period !== 'Sin garantía') {
+      if (effectiveWarrantyPeriod && effectiveWarrantyPeriod !== 'Sin garantía') {
         const daysMap: Record<string, number> = {
           '30 días': 30,
           '60 días': 60,
@@ -110,7 +113,7 @@ export default function ServiceOrdersPage() {
           '6 meses': 180,
           '12 meses': 365,
         };
-        const daysToAdd = daysMap[editingOrder.warranty_period] || 30;
+        const daysToAdd = daysMap[effectiveWarrantyPeriod] || 30;
         const d = new Date();
         d.setDate(d.getDate() + daysToAdd);
         calculatedWarrantyUntil = d.toISOString();
@@ -123,30 +126,31 @@ export default function ServiceOrdersPage() {
         editingOrder.status,
         editingOrder.technical_diagnosis,
         editingOrder.final_price,
-        editingOrder.warranty_period || '30 días',
+        effectiveWarrantyPeriod,
         calculatedWarrantyUntil,
         calculatedDeliveredAt
       );
-    } catch (err) {
-      console.warn('Actualización de orden realizada');
-    }
 
-    const updatedOrder: ServiceOrder = {
-      ...editingOrder,
-      warranty_period: editingOrder.warranty_period || (editingOrder.status === 'para_entregar' ? '30 días' : undefined),
-      warranty_until: calculatedWarrantyUntil,
-      delivered_at: calculatedDeliveredAt,
-    };
+      const updatedOrder: ServiceOrder = {
+        ...editingOrder,
+        warranty_period: effectiveWarrantyPeriod,
+        warranty_until: calculatedWarrantyUntil,
+        delivered_at: calculatedDeliveredAt,
+      };
 
-    setOrders((prev) =>
-      prev.map((o) => (o.id === editingOrder.id ? updatedOrder : o))
-    );
+      setOrders((prev) =>
+        prev.map((o) => (o.id === editingOrder.id ? updatedOrder : o))
+      );
 
-    setEditingOrder(null);
+      setEditingOrder(null);
 
-    // Si cambió el estado a "Para Entregar", sugerir enviar notificación por WhatsApp
-    if (statusChangedToReady) {
-      setWhatsappNotifyOrder(updatedOrder);
+      // Si cambió el estado a "Para Entregar", sugerir enviar notificación por WhatsApp
+      if (statusChangedToReady) {
+        setWhatsappNotifyOrder(updatedOrder);
+      }
+    } catch (err: any) {
+      console.error('Error al guardar la orden de servicio en Supabase:', err);
+      alert(`Error al guardar los cambios: ${err?.message || 'Revisa la conexión con Supabase'}`);
     }
   };
 
@@ -183,6 +187,13 @@ export default function ServiceOrdersPage() {
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-500/20 text-[10px] uppercase font-bold tracking-wide">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
             Para Entregar
+          </span>
+        );
+      case 'entregado':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] uppercase font-bold tracking-wide">
+            <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-400" />
+            Entregado
           </span>
         );
       case 'abandonado':
@@ -248,6 +259,7 @@ export default function ServiceOrdersPage() {
             { id: 'esperando_repuesto', label: 'Esperando Repuesto' },
             { id: 'esperando_cliente', label: 'Esperando Cliente' },
             { id: 'para_entregar', label: 'Para Entregar' },
+            { id: 'entregado', label: 'Entregadas' },
             { id: 'abandonado', label: 'Vencidas (+30 días)' },
           ].map((tab) => (
             <button
@@ -435,6 +447,7 @@ export default function ServiceOrdersPage() {
                     <option value="esperando_repuesto">Esperando Repuesto</option>
                     <option value="esperando_cliente">Esperando Respuesta Cliente</option>
                     <option value="para_entregar">¡Listo para Entregar!</option>
+                    <option value="entregado">Entregado al Cliente</option>
                     <option value="abandonado">Orden Vencida (+30 Días)</option>
                   </select>
                 </div>
