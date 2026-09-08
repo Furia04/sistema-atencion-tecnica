@@ -25,13 +25,19 @@ export interface Shop {
   name: string;
   owner_email: string;
   subscription_status: SubscriptionStatus;
-  plan_price: number;
-  active: boolean;
-  created_at: string;
+  plan_price?: number;
+  active?: boolean;
+  mp_preapproval_id?: string;
+  created_at?: string;
   orders_count?: number;
   settings?: {
+    phone?: string;
     receipt_footer?: string;
     thermal_printer_width?: '80mm' | '58mm';
+    ticket?: {
+      terms?: string;
+    };
+    templates?: any[];
   };
 }
 

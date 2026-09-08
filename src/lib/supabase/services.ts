@@ -33,6 +33,34 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   }
 }
 
+export async function fetchCurrentShop(): Promise<Shop | null> {
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile) return null;
+
+    const targetShopId = profile.shop_id || profile.id;
+    const { data: dbShop } = await supabase
+      .from('shops')
+      .select('*')
+      .or(`id.eq.${targetShopId},owner_email.eq.${profile.email}`)
+      .maybeSingle();
+
+    if (!dbShop) return null;
+
+    return {
+      id: dbShop.id,
+      name: dbShop.name || 'Mi Taller',
+      owner_email: dbShop.owner_email || profile.email,
+      subscription_status: dbShop.subscription_status || 'active',
+      mp_preapproval_id: dbShop.mp_preapproval_id,
+      created_at: dbShop.created_at,
+      settings: dbShop.settings || {},
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
 // =======================================================
 // PANEL DE SUPER ADMINISTRADOR (100% REAL DE SUPABASE)
 // =======================================================

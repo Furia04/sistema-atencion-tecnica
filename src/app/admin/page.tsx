@@ -355,7 +355,7 @@ export default function SuperAdminDashboardPage() {
                       </td>
                       <td className="p-4 text-on-surface-variant font-semibold">{shop.owner_email}</td>
                       <td className="p-4 text-on-surface-variant">
-                        {new Date(shop.created_at).toLocaleDateString('es-AR')}
+                        {shop.created_at ? new Date(shop.created_at).toLocaleDateString('es-AR') : 'Reciente'}
                       </td>
                       <td className="p-4 font-bold text-primary text-center">
                         {shop.orders_count ?? 0}

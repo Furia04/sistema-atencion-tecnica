@@ -27,17 +27,20 @@ import {
   FolderOpen,
   Send,
   ShieldCheck,
+  PackageCheck,
 } from 'lucide-react';
 import { PatternLockInput } from '@/components/orders/pattern-lock-input';
-import { InventoryItem, OrderStatus, ServiceOrder, UserProfile } from '@/types';
+import { InventoryItem, OrderStatus, ServiceOrder, Shop, UserProfile } from '@/types';
 import { BudgetCalculator } from '@/components/orders/budget-calculator';
 import { ThermalTicket } from '@/components/orders/thermal-ticket';
-import { fetchServiceOrders, updateServiceOrderStatus, fetchInventory } from '@/lib/supabase/services';
+import { DeliveryTicket } from '@/components/orders/delivery-ticket';
+import { fetchServiceOrders, updateServiceOrderStatus, fetchInventory, fetchCurrentShop } from '@/lib/supabase/services';
 import { supabase } from '@/lib/supabase/client';
 
 export default function ServiceOrdersPage() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [shop, setShop] = useState<Shop | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -46,6 +49,7 @@ export default function ServiceOrdersPage() {
   // Estado para las Ventanas Emergentes
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
   const [printingOrder, setPrintingOrder] = useState<ServiceOrder | null>(null);
+  const [deliveryTicketOrder, setDeliveryTicketOrder] = useState<ServiceOrder | null>(null);
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'budget'>('details');
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -57,12 +61,14 @@ export default function ServiceOrdersPage() {
     async function loadData() {
       setLoading(true);
       try {
-        const [realOrders, realInventory] = await Promise.all([
+        const [realOrders, realInventory, currentShop] = await Promise.all([
           fetchServiceOrders(),
           fetchInventory(),
+          fetchCurrentShop(),
         ]);
         setOrders(realOrders || []);
         setInventory(realInventory || []);
+        setShop(currentShop);
       } catch (err) {
         console.error('Error al cargar órdenes de Supabase:', err);
       } finally {
@@ -349,28 +355,48 @@ export default function ServiceOrdersPage() {
                         <Edit className="w-3.5 h-3.5 text-primary" />
                       </button>
 
-                      {/* Botón Imprimir Ticket 80mm */}
-                      <button
-                        onClick={() => setPrintingOrder(ord)}
-                        className="p-1.5 bg-surface-bright border border-outline-variant hover:bg-surface-container-highest text-on-surface rounded-lg transition-colors inline-flex items-center"
-                        title="Imprimir Comanda 80mm"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-purple-400" />
-                      </button>
+                      {/* Botón Imprimir Ticket / Comanda: Comanda de Entrega (solo si es entregado) vs Comanda de Ingreso */}
+                      {ord.status === 'entregado' ? (
+                        <button
+                          onClick={() => setDeliveryTicketOrder(ord)}
+                          className="p-1.5 bg-emerald-950/40 border border-emerald-500/40 hover:bg-emerald-600/30 text-emerald-400 rounded-lg transition-colors inline-flex items-center gap-1 font-bold text-[11px]"
+                          title="Comanda & Certificado de Entrega (Imprimir / WhatsApp)"
+                        >
+                          <PackageCheck className="w-3.5 h-3.5 text-emerald-400" /> Ticket Entrega
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setPrintingOrder(ord)}
+                          className="p-1.5 bg-surface-bright border border-outline-variant hover:bg-surface-container-highest text-on-surface rounded-lg transition-colors inline-flex items-center"
+                          title="Imprimir Comanda de Ingreso (80mm)"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-purple-400" />
+                        </button>
+                      )}
 
                       {/* Botón WhatsApp Notificar */}
                       {ord.customer_phone && (
-                        <a
-                          href={`https://wa.me/${ord.customer_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                            `Hola ${ord.customer_name}, te escribimos de JaTech por tu equipo (${ord.device_info}). Puedes consultar el estado actualizado de tu orden ${ord.tracking_code} aquí: ${window.location.origin}/track/${ord.tracking_code.replace('#', '')}`
-                          )}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 bg-emerald-900/30 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 rounded-lg transition-colors inline-flex items-center"
-                          title="Enviar Notificación WhatsApp al Cliente"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </a>
+                        ord.status === 'entregado' ? (
+                          <button
+                            onClick={() => setDeliveryTicketOrder(ord)}
+                            className="p-1.5 bg-emerald-900/30 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 rounded-lg transition-colors inline-flex items-center"
+                            title="Enviar Comprobante de Entrega por WhatsApp"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <a
+                            href={`https://wa.me/${ord.customer_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                              `Hola ${ord.customer_name}, te escribimos de ${shop?.name || 'nuestro taller'} por tu equipo (${ord.device_info}). Puedes consultar el estado actualizado de tu orden ${ord.tracking_code} aquí: ${window.location.origin}/track/${ord.tracking_code.replace('#', '')}`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 bg-emerald-900/30 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 rounded-lg transition-colors inline-flex items-center"
+                            title="Enviar Notificación WhatsApp al Cliente"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </a>
+                        )
                       )}
                     </td>
                   </tr>
@@ -548,15 +574,27 @@ export default function ServiceOrdersPage() {
             )}
 
             <div className="flex justify-between items-center pt-2 border-t border-outline-variant/60">
-              <button
-                onClick={() => {
-                  setPrintingOrder(editingOrder);
-                  setEditingOrder(null);
-                }}
-                className="px-3.5 py-2 bg-surface-bright border border-outline-variant text-on-surface hover:bg-surface-container-highest rounded-xl text-xs font-bold flex items-center gap-1.5"
-              >
-                <Printer className="w-4 h-4 text-purple-400" /> Imprimir Comanda 80mm
-              </button>
+              {editingOrder.status === 'entregado' ? (
+                <button
+                  onClick={() => {
+                    setDeliveryTicketOrder(editingOrder);
+                    setEditingOrder(null);
+                  }}
+                  className="px-3.5 py-2 bg-emerald-950/40 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30 rounded-xl text-xs font-bold flex items-center gap-1.5"
+                >
+                  <PackageCheck className="w-4 h-4 text-emerald-400" /> Ticket & Comanda de Entrega
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setPrintingOrder(editingOrder);
+                    setEditingOrder(null);
+                  }}
+                  className="px-3.5 py-2 bg-surface-bright border border-outline-variant text-on-surface hover:bg-surface-container-highest rounded-xl text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Printer className="w-4 h-4 text-purple-400" /> Imprimir Comanda 80mm
+                </button>
+              )}
 
               <div className="flex gap-2">
                 <button
@@ -581,7 +619,17 @@ export default function ServiceOrdersPage() {
       {printingOrder && (
         <ThermalTicket
           order={printingOrder}
+          shop={shop}
           onClose={() => setPrintingOrder(null)}
+        />
+      )}
+
+      {/* COMANDA & CERTIFICADO DE ENTREGA (SOLO PARA ESTADO ENTREGADO) */}
+      {deliveryTicketOrder && (
+        <DeliveryTicket
+          order={deliveryTicketOrder}
+          shop={shop}
+          onClose={() => setDeliveryTicketOrder(null)}
         />
       )}
 
