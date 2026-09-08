@@ -567,128 +567,42 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
   if (!cleanQuery) return [];
 
   try {
-    // 1. Intentar mediante la función RPC segura de PostgreSQL (p_query o query)
-    let rpcRes = await supabase.rpc('get_public_order_tracking', { p_query: cleanQuery });
-    if (rpcRes.error) {
-      // Fallback a parámetro 'query' por compatibilidad
-      rpcRes = await supabase.rpc('get_public_order_tracking', { query: cleanQuery } as any);
-    }
-
-    const rpcData = rpcRes.data;
-    const rpcError = rpcRes.error;
-
-    if (!rpcError && rpcData && rpcData.length > 0) {
-      return rpcData.map((ord: any) => ({
-        id: ord.id,
-        tracking_code: ord.tracking_code,
-        status: ord.status,
-        reported_fault: ord.reported_fault,
-        technical_diagnosis: ord.technical_diagnosis,
-        estimated_completion: ord.estimated_completion,
-        final_price: ord.final_price,
-        warranty_period: ord.warranty_period,
-        warranty_until: ord.warranty_until,
-        delivered_at: ord.delivered_at,
-        created_at: ord.created_at,
-        customer_name: ord.customer_name || 'Cliente',
-        customer_phone: ord.customer_phone || '',
-        customer_document_id: ord.customer_document_id || '',
-        device_info: `${ord.device_type || 'Equipo'} · ${ord.device_brand || ''} ${ord.device_model || ''}`.trim(),
-      }));
-    }
-
-    // 2. Fallback de compatibilidad si la función RPC aún no se ejecutó en la base de datos
-    const { data: customerData } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('document_id', cleanQuery);
-
-    const customerIds = (customerData || []).map((c: any) => c.id);
-    const codeWithHash = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
-    const codeWithoutHash = cleanQuery.replace(/^#/, '');
-
-    const trackingFilters = `tracking_code.eq.${codeWithHash},tracking_code.eq.${codeWithoutHash},tracking_code.ilike.%${codeWithoutHash}%`;
-
-    let supabaseQuery = supabase
-      .from('service_orders')
-      .select(`
-        *,
-        customers ( full_name, phone, document_id ),
-        devices ( type, brand, model, serial_number )
-      `);
-
-    if (customerIds.length > 0) {
-      supabaseQuery = supabaseQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
-    } else {
-      supabaseQuery = supabaseQuery.or(trackingFilters);
-    }
-
-    let resultOrders: any[] = [];
-
-    const { data, error } = await supabaseQuery.order('created_at', { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      resultOrders = data;
-    } else {
-      // Fallback desacoplado: consultar sin join y poblar relaciones
-      let rawQuery = supabase.from('service_orders').select('*');
-      if (customerIds.length > 0) {
-        rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
-      } else {
-        rawQuery = rawQuery.or(trackingFilters);
-      }
-      const { data: rawData } = await rawQuery.order('created_at', { ascending: false });
-      if (rawData && rawData.length > 0) {
-        resultOrders = await populateOrdersRelations(rawData);
+    // 1. Intentar consulta mediante la API Route interna (/api/track) para evitar 404/400 en la consola del navegador
+    const res = await fetch(`/api/track?query=${encodeURIComponent(cleanQuery)}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.orders && data.orders.length > 0) {
+        return data.orders;
       }
     }
-
-    // Fallback adicional en localStorage para entornos locales/demo
-    if (resultOrders.length === 0 && typeof window !== 'undefined') {
-      try {
-        const storedStr = localStorage.getItem('prorepair_local_orders');
-        if (storedStr) {
-          const localOrders: ServiceOrder[] = JSON.parse(storedStr);
-          const matched = localOrders.filter((o) => {
-            const cleanCode = (o.tracking_code || '').toUpperCase().replace(/^#/, '');
-            const targetCode = cleanQuery.replace(/^#/, '');
-            return (
-              cleanCode === targetCode ||
-              (o.tracking_code || '').toUpperCase() === cleanQuery ||
-              (o.customer_document_id || '').toUpperCase() === cleanQuery ||
-              o.id === cleanQuery
-            );
-          });
-          if (matched.length > 0) {
-            return matched;
-          }
-        }
-      } catch (e) {}
-    }
-
-    return resultOrders.map((ord: any) => ({
-      id: ord.id,
-      shop_id: ord.shop_id,
-      tracking_code: ord.tracking_code,
-      device_id: ord.device_id,
-      customer_id: ord.customer_id,
-      status: ord.status,
-      reported_fault: ord.reported_fault,
-      technical_diagnosis: ord.technical_diagnosis,
-      estimated_completion: ord.estimated_completion,
-      final_price: ord.final_price,
-      warranty_period: ord.warranty_period,
-      warranty_until: ord.warranty_until,
-      delivered_at: ord.delivered_at,
-      created_at: ord.created_at,
-      customer_name: ord.customers?.full_name || ord.customer_name || 'Cliente',
-      customer_phone: ord.customers?.phone || ord.customer_phone || '',
-      customer_document_id: ord.customers?.document_id || ord.customer_document_id || '',
-      device_info: ord.device_info || `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
-    }));
-  } catch (err) {
-    return [];
+  } catch (e) {
+    console.warn('API /api/track no disponible, usando fallback local:', e);
   }
+
+  // 2. Fallback adicional en localStorage para entornos locales/demo
+  if (typeof window !== 'undefined') {
+    try {
+      const storedStr = localStorage.getItem('prorepair_local_orders');
+      if (storedStr) {
+        const localOrders: ServiceOrder[] = JSON.parse(storedStr);
+        const matched = localOrders.filter((o) => {
+          const cleanCode = (o.tracking_code || '').toUpperCase().replace(/^#/, '');
+          const targetCode = cleanQuery.replace(/^#/, '');
+          return (
+            cleanCode === targetCode ||
+            (o.tracking_code || '').toUpperCase() === cleanQuery ||
+            (o.customer_document_id || '').toUpperCase() === cleanQuery ||
+            o.id === cleanQuery
+          );
+        });
+        if (matched.length > 0) {
+          return matched;
+        }
+      }
+    } catch (e) {}
+  }
+
+  return [];
 }
 
 // =======================================================
