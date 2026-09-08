@@ -152,7 +152,7 @@ export default function NewOrderIntakePage() {
     } catch (err) {
       console.warn('Guardado local de emergencia realizado:', err);
       const localOrderObj: ServiceOrder = {
-        id: `ord-local-${Date.now()}`,
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-' + String(Date.now()).padStart(12, '0'),
         shop_id: 'local-shop',
         tracking_code: `#${ticketCode}`,
         device_id: `dev-${Date.now()}`,
@@ -214,7 +214,7 @@ export default function NewOrderIntakePage() {
     } catch (err) {
       console.warn('Guardado local de emergencia realizado:', err);
       const localOrderObj: ServiceOrder = {
-        id: `ord-local-${Date.now()}`,
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-' + String(Date.now()).padStart(12, '0'),
         shop_id: 'local-shop',
         tracking_code: `#${ticketCode}`,
         device_id: `dev-${Date.now()}`,

@@ -417,6 +417,38 @@ export async function updateServiceOrderStatus(
   warrantyUntil?: string,
   deliveredAt?: string
 ) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+
+  if (!isUuid) {
+    try {
+      if (typeof window !== 'undefined') {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        if (storedStr) {
+          const localOrders = JSON.parse(storedStr);
+          const updated = localOrders.map((o: any) => {
+            if (o.id === orderId || o.tracking_code === orderId) {
+              return {
+                ...o,
+                status,
+                technical_diagnosis: technicalDiagnosis,
+                final_price: finalPrice,
+                warranty_period: warrantyPeriod,
+                warranty_until: warrantyUntil,
+                delivered_at: deliveredAt,
+                updated_at: new Date().toISOString(),
+              };
+            }
+            return o;
+          });
+          localStorage.setItem('prorepair_local_orders', JSON.stringify(updated));
+        }
+      }
+    } catch (e) {
+      console.warn('Error al actualizar orden local:', e);
+    }
+    return true;
+  }
+
   const updateData: any = {
     status,
     technical_diagnosis: technicalDiagnosis,
