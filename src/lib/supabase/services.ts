@@ -446,40 +446,40 @@ export async function updateServiceOrderStatus(
   finalPrice?: number,
   warrantyPeriod?: string,
   warrantyUntil?: string,
-  deliveredAt?: string
+  deliveredAt?: string,
+  trackingCode?: string
 ) {
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-
-  if (!isUuid) {
+  // 1. SIEMPRE sincronizar en localStorage de forma instantánea
+  if (typeof window !== 'undefined') {
     try {
-      if (typeof window !== 'undefined') {
-        const storedStr = localStorage.getItem('prorepair_local_orders');
-        if (storedStr) {
-          const localOrders = JSON.parse(storedStr);
-          const updated = localOrders.map((o: any) => {
-            if (o.id === orderId || o.tracking_code === orderId) {
-              return {
-                ...o,
-                status,
-                technical_diagnosis: technicalDiagnosis,
-                final_price: finalPrice,
-                warranty_period: warrantyPeriod,
-                warranty_until: warrantyUntil,
-                delivered_at: deliveredAt,
-                updated_at: new Date().toISOString(),
-              };
-            }
-            return o;
-          });
-          localStorage.setItem('prorepair_local_orders', JSON.stringify(updated));
-        }
+      const storedStr = localStorage.getItem('prorepair_local_orders');
+      if (storedStr) {
+        const localOrders = JSON.parse(storedStr);
+        const updated = localOrders.map((o: any) => {
+          if (o.id === orderId || (trackingCode && o.tracking_code === trackingCode) || o.tracking_code === orderId) {
+            return {
+              ...o,
+              status,
+              technical_diagnosis: technicalDiagnosis !== undefined ? technicalDiagnosis : o.technical_diagnosis,
+              final_price: finalPrice !== undefined ? finalPrice : o.final_price,
+              warranty_period: warrantyPeriod !== undefined ? warrantyPeriod : o.warranty_period,
+              warranty_until: warrantyUntil !== undefined ? warrantyUntil : o.warranty_until,
+              delivered_at: deliveredAt !== undefined ? deliveredAt : o.delivered_at,
+              updated_at: new Date().toISOString(),
+            };
+          }
+          return o;
+        });
+        localStorage.setItem('prorepair_local_orders', JSON.stringify(updated));
       }
     } catch (e) {
-      console.warn('Error al actualizar orden local:', e);
+      console.warn('Error al actualizar orden en localStorage:', e);
     }
-    return true;
   }
 
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+
+  // 2. Preparar payload de actualización para Supabase
   const updateData: any = {
     status,
     technical_diagnosis: technicalDiagnosis,
@@ -491,28 +491,79 @@ export async function updateServiceOrderStatus(
   if (warrantyUntil !== undefined) updateData.warranty_until = warrantyUntil;
   if (deliveredAt !== undefined) updateData.delivered_at = deliveredAt;
 
-  const { data, error } = await supabase
-    .from('service_orders')
-    .update(updateData)
-    .eq('id', orderId)
-    .select();
-
-  if (error) throw error;
-
-  // Si el estado pasa a 'entregado', convertir todos los repuestos reservados a 'consumed' (cierre de venta)
-  if (status === 'entregado') {
-    try {
-      await supabase
-        .from('order_spares')
-        .update({ status: 'consumed', updated_at: new Date().toISOString() })
-        .eq('order_id', orderId)
-        .eq('status', 'reserved');
-    } catch (e) {
-      console.warn('Error al actualizar estado de repuestos a consumed:', e);
+  try {
+    let query = supabase.from('service_orders').update(updateData);
+    if (isUuid) {
+      query = query.eq('id', orderId);
+    } else if (trackingCode) {
+      query = query.eq('tracking_code', trackingCode);
+    } else {
+      query = query.eq('tracking_code', orderId);
     }
-  }
 
-  return data;
+    let { data, error } = await query.select();
+
+    // Reintento sin columnas de garantía si la BD no fue migrada con esas columnas
+    if (error && (error.message?.toLowerCase().includes('column') || error.code === '42703')) {
+      console.warn('Columnas de garantía no presentes en la tabla service_orders, reintentando actualización básica:', error.message);
+      const basicUpdate = {
+        status,
+        technical_diagnosis: technicalDiagnosis,
+        final_price: finalPrice,
+        updated_at: new Date().toISOString(),
+      };
+      let retryQuery = supabase.from('service_orders').update(basicUpdate);
+      if (isUuid) {
+        retryQuery = retryQuery.eq('id', orderId);
+      } else if (trackingCode) {
+        retryQuery = retryQuery.eq('tracking_code', trackingCode);
+      } else {
+        retryQuery = retryQuery.eq('tracking_code', orderId);
+      }
+      const retryRes = await retryQuery.select();
+      data = retryRes.data;
+      error = retryRes.error;
+    }
+
+    // Si data vino vacío (0 filas afectadas) y teníamos trackingCode, intentar por tracking_code
+    if (!error && (!data || data.length === 0) && trackingCode && isUuid) {
+      const byCodeRes = await supabase
+        .from('service_orders')
+        .update(updateData)
+        .eq('tracking_code', trackingCode)
+        .select();
+      if (byCodeRes.data && byCodeRes.data.length > 0) {
+        data = byCodeRes.data;
+      }
+    }
+
+    if (error) {
+      console.error('Error al actualizar en Supabase:', error);
+      if (isUuid) {
+        throw error;
+      }
+    }
+
+    // Si el estado pasa a 'entregado', convertir repuestos reservados a 'consumed' (cierre de venta)
+    if (status === 'entregado') {
+      try {
+        await supabase
+          .from('order_spares')
+          .update({ status: 'consumed', updated_at: new Date().toISOString() })
+          .eq('order_id', orderId)
+          .eq('status', 'reserved');
+      } catch (e) {
+        console.warn('Error al actualizar estado de repuestos a consumed:', e);
+      }
+    }
+
+    return data;
+  } catch (err) {
+    if (!isUuid) {
+      return true; // Ya guardado localmente
+    }
+    throw err;
+  }
 }
 
 // =======================================================

@@ -104,26 +104,26 @@ export default function ServiceOrdersPage() {
     let calculatedWarrantyUntil = editingOrder.warranty_until;
     let calculatedDeliveredAt = editingOrder.delivered_at;
 
+    // Solo se establece fecha de entrega si realmente se entrega el equipo
+    if (editingOrder.status === 'entregado' && !calculatedDeliveredAt) {
+      calculatedDeliveredAt = new Date().toISOString();
+    }
+
     const isDeliveredOrReady = editingOrder.status === 'para_entregar' || editingOrder.status === 'entregado';
     const effectiveWarrantyPeriod = editingOrder.warranty_period || (isDeliveredOrReady ? '30 días' : undefined);
 
-    if (isDeliveredOrReady) {
-      if (!calculatedDeliveredAt) {
-        calculatedDeliveredAt = new Date().toISOString();
-      }
-      if (effectiveWarrantyPeriod && effectiveWarrantyPeriod !== 'Sin garantía') {
-        const daysMap: Record<string, number> = {
-          '30 días': 30,
-          '60 días': 60,
-          '90 días': 90,
-          '6 meses': 180,
-          '12 meses': 365,
-        };
-        const daysToAdd = daysMap[effectiveWarrantyPeriod] || 30;
-        const d = new Date();
-        d.setDate(d.getDate() + daysToAdd);
-        calculatedWarrantyUntil = d.toISOString();
-      }
+    if (effectiveWarrantyPeriod && effectiveWarrantyPeriod !== 'Sin garantía') {
+      const daysMap: Record<string, number> = {
+        '30 días': 30,
+        '60 días': 60,
+        '90 días': 90,
+        '6 meses': 180,
+        '12 meses': 365,
+      };
+      const daysToAdd = daysMap[effectiveWarrantyPeriod] || 30;
+      const d = new Date();
+      d.setDate(d.getDate() + daysToAdd);
+      calculatedWarrantyUntil = d.toISOString();
     }
 
     try {
@@ -134,7 +134,8 @@ export default function ServiceOrdersPage() {
         editingOrder.final_price,
         effectiveWarrantyPeriod,
         calculatedWarrantyUntil,
-        calculatedDeliveredAt
+        calculatedDeliveredAt,
+        editingOrder.tracking_code
       );
 
       const updatedOrder: ServiceOrder = {
@@ -147,6 +148,11 @@ export default function ServiceOrdersPage() {
       setOrders((prev) =>
         prev.map((o) => (o.id === editingOrder.id ? updatedOrder : o))
       );
+
+      // Si el filtro activo era otro estado y no 'all', mover la vista al nuevo estado para no perder la orden de vista
+      if (activeFilter !== 'all' && activeFilter !== editingOrder.status) {
+        setActiveFilter(editingOrder.status);
+      }
 
       setEditingOrder(null);
 
