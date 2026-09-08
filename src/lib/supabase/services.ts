@@ -570,7 +570,7 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
   if (!cleanQuery) return [];
 
   try {
-    // 1. Intentar consulta mediante la API Route interna (/api/track) para evitar 404/400 en la consola del navegador
+    // 1. Intentar consulta mediante la API Route interna (/api/track)
     const res = await fetch(`/api/track?query=${encodeURIComponent(cleanQuery)}`);
     if (res.ok) {
       const data = await res.json();
@@ -579,11 +579,99 @@ export async function fetchPublicOrdersByDocumentIdOrCode(query: string): Promis
       }
     }
   } catch (e) {
-    console.warn('API /api/track no disponible, usando fallback local:', e);
+    console.warn('API /api/track no disponible, usando fallback directo:', e);
   }
 
-  // 2. Fallback adicional en localStorage para entornos locales/demo
+  // 2. Fallback directo en cliente (por si la API Route del servidor no tiene service role key y el cliente sí tiene sesión o RPC)
   if (typeof window !== 'undefined') {
+    try {
+      const codeWithHash = cleanQuery.startsWith('#') ? cleanQuery : `#${cleanQuery}`;
+      const codeWithoutHash = cleanQuery.replace(/^#/, '');
+      const digitsOnly = cleanQuery.replace(/[^0-9]/g, '');
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanQuery);
+
+      // 2.1 Intentar RPC pública si existe
+      try {
+        let rpcRes = await supabase.rpc('get_public_order_tracking', { p_query: cleanQuery });
+        if (rpcRes.error) {
+          rpcRes = await supabase.rpc('get_public_order_tracking', { query: cleanQuery } as any);
+        }
+        if (!rpcRes.error && rpcRes.data && rpcRes.data.length > 0) {
+          return rpcRes.data.map((ord: any) => ({
+            id: ord.id,
+            tracking_code: ord.tracking_code,
+            status: ord.status,
+            reported_fault: ord.reported_fault,
+            technical_diagnosis: ord.technical_diagnosis,
+            estimated_completion: ord.estimated_completion,
+            final_price: ord.final_price,
+            warranty_period: ord.warranty_period,
+            warranty_until: ord.warranty_until,
+            delivered_at: ord.delivered_at,
+            created_at: ord.created_at,
+            customer_name: ord.customer_name || 'Cliente',
+            customer_phone: ord.customer_phone || '',
+            customer_document_id: ord.customer_document_id || '',
+            device_info: `${ord.device_type || 'Equipo'} · ${ord.device_brand || ''} ${ord.device_model || ''}`.trim(),
+            shop_name: ord.shop_name || 'Taller de Servicio Técnico',
+          }));
+        }
+      } catch (rpcErr) {}
+
+      // 2.2 Intentar consulta directa con el cliente
+      const clientFilters = [
+        `tracking_code.eq.${codeWithHash}`,
+        `tracking_code.eq.${codeWithoutHash}`,
+        `tracking_code.ilike.%${codeWithoutHash}%`,
+        digitsOnly.length >= 3 ? `tracking_code.ilike.%${digitsOnly}%` : null,
+        isUuid ? `id.eq.${cleanQuery}` : null,
+      ].filter(Boolean);
+
+      const { data: cData } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`document_id.eq.${cleanQuery},document_id.eq.${codeWithoutHash}`);
+
+      const cIds = (cData || []).map((c: any) => c.id);
+      if (cIds.length > 0) {
+        cIds.forEach((cid) => clientFilters.push(`customer_id.eq.${cid}`));
+      }
+
+      const { data: directOrders } = await supabase
+        .from('service_orders')
+        .select(`
+          *,
+          customers ( full_name, phone, document_id ),
+          devices ( type, brand, model, serial_number )
+        `)
+        .or(clientFilters.join(','))
+        .order('created_at', { ascending: false });
+
+      if (directOrders && directOrders.length > 0) {
+        return directOrders.map((ord: any) => ({
+          id: ord.id,
+          shop_id: ord.shop_id,
+          tracking_code: ord.tracking_code,
+          device_id: ord.device_id,
+          customer_id: ord.customer_id,
+          status: ord.status,
+          reported_fault: ord.reported_fault,
+          technical_diagnosis: ord.technical_diagnosis,
+          estimated_completion: ord.estimated_completion,
+          final_price: ord.final_price,
+          warranty_period: ord.warranty_period,
+          warranty_until: ord.warranty_until,
+          delivered_at: ord.delivered_at,
+          created_at: ord.created_at,
+          customer_name: ord.customers?.full_name || 'Cliente',
+          customer_phone: ord.customers?.phone || '',
+          customer_document_id: ord.customers?.document_id || '',
+          device_info: ord.devices ? `${ord.devices.type || 'Equipo'} · ${ord.devices.brand || ''} ${ord.devices.model || ''}`.trim() : 'Equipo',
+        }));
+      }
+    } catch (directErr) {}
+
+    // 2.3 Fallback adicional en localStorage
     try {
       const storedStr = localStorage.getItem('prorepair_local_orders');
       if (storedStr) {

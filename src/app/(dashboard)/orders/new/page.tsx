@@ -145,7 +145,31 @@ export default function NewOrderIntakePage() {
     };
 
     try {
-      await createServiceOrderWithDevice(newOrderPayload);
+      const savedOrder = await createServiceOrderWithDevice(newOrderPayload);
+      const localOrderObj: ServiceOrder = {
+        id: savedOrder?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-' + String(Date.now()).padStart(12, '0')),
+        shop_id: savedOrder?.shop_id || 'local-shop',
+        tracking_code: `#${ticketCode}`,
+        device_id: savedOrder?.device_id || `dev-${Date.now()}`,
+        customer_id: savedOrder?.customer_id || `cust-${Date.now()}`,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_document_id: customerDocumentId.trim(),
+        device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
+        status: 'recibido',
+        reported_fault: faultDescription.trim(),
+        final_price: 0,
+        created_at: savedOrder?.created_at || new Date().toISOString(),
+        custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
+      };
+
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        const existing = storedStr ? JSON.parse(storedStr) : [];
+        const filtered = existing.filter((o: any) => o.tracking_code !== `#${ticketCode}` && o.id !== localOrderObj.id);
+        localStorage.setItem('prorepair_local_orders', JSON.stringify([localOrderObj, ...filtered]));
+      } catch (e) {}
+
       setSuccessMessage('¡Orden de servicio guardada exitosamente! Redirigiendo...');
       setTimeout(() => {
         router.push('/orders');
@@ -212,7 +236,30 @@ export default function NewOrderIntakePage() {
     };
 
     try {
-      await createServiceOrderWithDevice(newOrderPayload);
+      const savedOrder = await createServiceOrderWithDevice(newOrderPayload);
+      const localOrderObj: ServiceOrder = {
+        id: savedOrder?.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-' + String(Date.now()).padStart(12, '0')),
+        shop_id: savedOrder?.shop_id || 'local-shop',
+        tracking_code: `#${ticketCode}`,
+        device_id: savedOrder?.device_id || `dev-${Date.now()}`,
+        customer_id: savedOrder?.customer_id || `cust-${Date.now()}`,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        customer_document_id: customerDocumentId.trim(),
+        device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
+        status: 'recibido',
+        reported_fault: faultDescription.trim(),
+        final_price: 0,
+        created_at: savedOrder?.created_at || new Date().toISOString(),
+        custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
+      };
+
+      try {
+        const storedStr = localStorage.getItem('prorepair_local_orders');
+        const existing = storedStr ? JSON.parse(storedStr) : [];
+        const filtered = existing.filter((o: any) => o.tracking_code !== `#${ticketCode}` && o.id !== localOrderObj.id);
+        localStorage.setItem('prorepair_local_orders', JSON.stringify([localOrderObj, ...filtered]));
+      } catch (e) {}
     } catch (err) {
       console.warn('Guardado local de emergencia realizado:', err);
       const localOrderObj: ServiceOrder = {
