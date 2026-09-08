@@ -14,34 +14,7 @@ export async function GET(request: Request) {
   const codeWithoutHash = cleanQuery.replace(/^#/, '');
 
   try {
-    // 1. Intentar mediante la función RPC de PostgreSQL de forma silenciosa en el servidor
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_order_tracking', {
-      p_query: cleanQuery,
-    });
-
-    if (!rpcError && rpcData && rpcData.length > 0) {
-      const orders = rpcData.map((ord: any) => ({
-        id: ord.id,
-        tracking_code: ord.tracking_code,
-        status: ord.status,
-        reported_fault: ord.reported_fault,
-        technical_diagnosis: ord.technical_diagnosis,
-        estimated_completion: ord.estimated_completion,
-        final_price: ord.final_price,
-        warranty_period: ord.warranty_period,
-        warranty_until: ord.warranty_until,
-        delivered_at: ord.delivered_at,
-        created_at: ord.created_at,
-        customer_name: ord.customer_name || 'Cliente',
-        customer_phone: ord.customer_phone || '',
-        customer_document_id: ord.customer_document_id || '',
-        device_info: `${ord.device_type || 'Equipo'} · ${ord.device_brand || ''} ${ord.device_model || ''}`.trim(),
-      }));
-
-      return NextResponse.json({ orders });
-    }
-
-    // 2. Consulta directa a Supabase en el servidor como fallback transparente
+    // 1. Buscar clientes que coincidan con el DNI / Documento ingresado
     const { data: customerData } = await supabase
       .from('customers')
       .select('id')
@@ -50,24 +23,41 @@ export async function GET(request: Request) {
     const customerIds = (customerData || []).map((c: any) => c.id);
     const trackingFilters = `tracking_code.eq.${codeWithHash},tracking_code.eq.${codeWithoutHash},tracking_code.ilike.%${codeWithoutHash}%`;
 
-    let supabaseQuery = supabase
-      .from('service_orders')
-      .select(`
-        *,
-        customers ( full_name, phone, document_id ),
-        devices ( type, brand, model, serial_number )
-      `);
-
+    // 2. Consultar directamente service_orders sin llamadas RPC
+    let rawQuery = supabase.from('service_orders').select('*');
     if (customerIds.length > 0) {
-      supabaseQuery = supabaseQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
+      rawQuery = rawQuery.or(`customer_id.in.(${customerIds.join(',')}),${trackingFilters}`);
     } else {
-      supabaseQuery = supabaseQuery.or(trackingFilters);
+      rawQuery = rawQuery.or(trackingFilters);
     }
 
-    const { data: ordersData, error: ordersError } = await supabaseQuery.order('created_at', { ascending: false });
+    const { data: dbOrders, error: ordersError } = await rawQuery.order('created_at', { ascending: false });
 
-    if (!ordersError && ordersData && ordersData.length > 0) {
-      const orders = ordersData.map((ord: any) => ({
+    if (ordersError || !dbOrders || dbOrders.length === 0) {
+      return NextResponse.json({ orders: [] });
+    }
+
+    // 3. Poblar relaciones de clientes, dispositivos y talleres de forma desacoplada
+    const customerIdList = Array.from(new Set(dbOrders.map((o: any) => o.customer_id).filter(Boolean)));
+    const deviceIdList = Array.from(new Set(dbOrders.map((o: any) => o.device_id).filter(Boolean)));
+    const shopIdList = Array.from(new Set(dbOrders.map((o: any) => o.shop_id).filter(Boolean)));
+
+    const [custRes, devRes, shopRes] = await Promise.all([
+      customerIdList.length > 0 ? supabase.from('customers').select('*').in('id', customerIdList) : { data: [] },
+      deviceIdList.length > 0 ? supabase.from('devices').select('*').in('id', deviceIdList) : { data: [] },
+      shopIdList.length > 0 ? supabase.from('shops').select('*').in('id', shopIdList) : { data: [] },
+    ]);
+
+    const custMap = new Map((custRes.data || []).map((c: any) => [c.id, c]));
+    const devMap = new Map((devRes.data || []).map((d: any) => [d.id, d]));
+    const shopMap = new Map((shopRes.data || []).map((s: any) => [s.id, s]));
+
+    const formattedOrders = dbOrders.map((ord: any) => {
+      const cust = custMap.get(ord.customer_id);
+      const dev = devMap.get(ord.device_id);
+      const shp = shopMap.get(ord.shop_id);
+
+      return {
         id: ord.id,
         shop_id: ord.shop_id,
         tracking_code: ord.tracking_code,
@@ -82,16 +72,15 @@ export async function GET(request: Request) {
         warranty_until: ord.warranty_until,
         delivered_at: ord.delivered_at,
         created_at: ord.created_at,
-        customer_name: ord.customers?.full_name || ord.customer_name || 'Cliente',
-        customer_phone: ord.customers?.phone || ord.customer_phone || '',
-        customer_document_id: ord.customers?.document_id || ord.customer_document_id || '',
-        device_info: ord.device_info || `${ord.devices?.type || 'Equipo'} · ${ord.devices?.brand || ''} ${ord.devices?.model || ''}`.trim(),
-      }));
+        customer_name: cust?.full_name || 'Cliente',
+        customer_phone: cust?.phone || '',
+        customer_document_id: cust?.document_id || '',
+        device_info: dev ? `${dev.type || 'Equipo'} · ${dev.brand || ''} ${dev.model || ''}`.trim() : 'Equipo',
+        shop_name: shp?.name || 'Taller de Servicio Técnico',
+      };
+    });
 
-      return NextResponse.json({ orders });
-    }
-
-    return NextResponse.json({ orders: [] });
+    return NextResponse.json({ orders: formattedOrders });
   } catch (err) {
     return NextResponse.json({ orders: [] });
   }
