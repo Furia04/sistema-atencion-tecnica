@@ -16,6 +16,8 @@ import {
   FileText,
   Search,
   ShieldCheck,
+  DollarSign,
+  Clock,
 } from 'lucide-react';
 import { OrderStatus, ServiceOrder } from '@/types';
 import { fetchPublicOrdersByDocumentIdOrCode } from '@/lib/supabase/services';
@@ -427,6 +429,51 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
                     </div>
                   </div>
                 )}
+
+                {/* Banner Destacado de Presupuesto / Precio de Reparación */}
+                {Boolean(selectedOrder.final_price && Number(selectedOrder.final_price) > 0) ? (
+                  <div className="mt-4 bg-gradient-to-r from-emerald-950/40 via-surface-container-high to-emerald-950/20 rounded-xl p-5 border border-emerald-500/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+                    <div className="flex items-center gap-3.5">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
+                        <DollarSign className="w-7 h-7" />
+                      </div>
+                      <div>
+                        <span className="font-label-caps text-[11px] text-emerald-400 uppercase font-extrabold tracking-wider block">
+                          {selectedOrder.status === 'entregado' ? 'Total Abonado' : 'Presupuesto de la Reparación'}
+                        </span>
+                        <p className="text-xs text-on-surface-variant">
+                          {selectedOrder.status === 'entregado'
+                            ? 'Equipo retirado y cobrado satisfactoriamente.'
+                            : selectedOrder.status === 'para_entregar'
+                            ? 'Equipo reparado. Importe final a abonar al momento del retiro.'
+                            : 'Presupuesto asignado por el técnico para la reparación de tu equipo.'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-500/20">
+                      <span className="font-label-caps text-[10px] text-on-surface-variant uppercase font-semibold block">
+                        Importe Total
+                      </span>
+                      <span className="font-mono-data text-3xl font-black text-emerald-400 tracking-tight">
+                        ${Number(selectedOrder.final_price).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 bg-surface-container-high rounded-xl p-4 border border-outline-variant flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <Clock className="w-4 h-4 text-on-surface-variant" />
+                      <div>
+                        <span className="font-label-caps text-[10px] text-on-surface-variant uppercase font-bold block">
+                          Presupuesto
+                        </span>
+                        <span className="text-on-surface-variant text-xs">
+                          En evaluación / Diagnóstico técnico pendiente de cotización
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Detalles e Información de Entrega */}
@@ -496,13 +543,22 @@ export default function TrackOrderPage({ params }: TrackPageProps) {
                         </p>
                       )}
 
-                      {Boolean(selectedOrder.final_price) && selectedOrder.final_price! > 0 && (
+                      {Boolean(selectedOrder.final_price && Number(selectedOrder.final_price) > 0) ? (
+                        <div className="mt-2 pt-2 border-t border-outline-variant w-full">
+                          <p className="font-label-caps text-label-caps text-emerald-400 uppercase font-bold">
+                            PRESUPUESTO
+                          </p>
+                          <p className="font-mono-data text-2xl text-emerald-400 font-black">
+                            ${Number(selectedOrder.final_price).toLocaleString('es-AR')}
+                          </p>
+                        </div>
+                      ) : (
                         <div className="mt-2 pt-2 border-t border-outline-variant w-full">
                           <p className="font-label-caps text-label-caps text-on-surface-variant uppercase font-semibold">
-                            PRESUPUESTO ESTIMADO
+                            PRESUPUESTO
                           </p>
-                          <p className="font-mono-data text-xl text-emerald-400 font-bold">
-                            ${Number(selectedOrder.final_price).toLocaleString('es-AR')}
+                          <p className="text-xs text-on-surface-variant italic">
+                            Pendiente de cotización
                           </p>
                         </div>
                       )}

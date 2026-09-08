@@ -17,6 +17,8 @@ import {
   Clock,
   AlertTriangle,
   Loader2,
+  DollarSign,
+  ArrowRight,
 } from 'lucide-react';
 import { OrderStatus, ServiceOrder } from '@/types';
 import { fetchPublicOrdersByDocumentIdOrCode } from '@/lib/supabase/services';
@@ -298,21 +300,70 @@ export default function TrackByDniPage() {
                         )}
                       </div>
 
-                      {/* Footer de la Tarjeta con Botón WhatsApp */}
+                      {/* Presupuesto / Importe Total Visible */}
+                      {Boolean(ord.final_price && Number(ord.final_price) > 0) ? (
+                        <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                              <DollarSign className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <span className="font-label-caps text-[10px] text-emerald-400 uppercase font-bold tracking-wider block">
+                                {ord.status === 'entregado' ? 'Total Abonado' : 'Presupuesto de la Reparación'}
+                              </span>
+                              <span className="text-xs text-on-surface-variant">
+                                {ord.status === 'entregado'
+                                  ? 'Equipo retirado y cobrado.'
+                                  : ord.status === 'para_entregar'
+                                  ? 'Listo para retirar y abonar en el taller.'
+                                  : 'Presupuesto establecido por el técnico.'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-left sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-emerald-500/20">
+                            <span className="font-label-caps text-[9px] text-on-surface-variant uppercase font-semibold block">
+                              Importe
+                            </span>
+                            <span className="font-mono-data text-2xl font-black text-emerald-400">
+                              ${Number(ord.final_price).toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-surface-container-lowest px-4 py-3 rounded-xl border border-outline-variant/50 flex justify-between items-center text-xs">
+                          <span className="font-label-caps text-[10px] text-on-surface-variant uppercase font-semibold flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" /> Presupuesto
+                          </span>
+                          <span className="text-on-surface-variant italic text-[11px]">
+                            En evaluación / Cotización pendiente
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Footer de la Tarjeta con Enlace y Botón WhatsApp */}
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2 border-t border-outline-variant/40">
                         <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                           <Calendar className="w-4 h-4 text-primary" />
                           <span>Estimación: <strong>{ord.estimated_completion || 'En diagnóstico'}</strong></span>
                         </div>
 
-                        <a
-                          href={`https://wa.me/?text=${waMsg}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl font-title-sm text-xs font-bold flex items-center gap-2 transition-colors shadow-sm self-end sm:self-auto"
-                        >
-                          <MessageSquare className="w-4 h-4" /> Consultar por WhatsApp
-                        </a>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                          <Link
+                            href={`/track/${ord.tracking_code.replace('#', '')}`}
+                            className="bg-surface-container-highest hover:bg-surface-container-high border border-outline-variant text-on-surface px-3.5 py-2 rounded-xl font-title-sm text-xs font-bold flex items-center gap-1.5 transition-colors"
+                          >
+                            Ver Detalle <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                          </Link>
+
+                          <a
+                            href={`https://wa.me/?text=${waMsg}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl font-title-sm text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                          </a>
+                        </div>
                       </div>
                     </div>
                   );
