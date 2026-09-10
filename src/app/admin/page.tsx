@@ -155,7 +155,7 @@ export default function SuperAdminDashboardPage() {
           name: cleanName,
           owner_email: cleanEmail,
           subscription_status: 'active',
-          plan_price: 15000,
+          plan_price: 20000,
           active: true,
         }]);
 
@@ -191,7 +191,9 @@ export default function SuperAdminDashboardPage() {
   const totalShops = shops.length;
   const activeShops = shops.filter((s) => s.active && s.subscription_status === 'active').length;
   const pendingShops = shops.filter((s) => !s.active || s.subscription_status === 'pending_payment').length;
-  const estimatedMonthlySaaSRevenue = activeShops * 15000;
+  const estimatedMonthlySaaSRevenue = shops
+    .filter((s) => s.active && s.subscription_status === 'active')
+    .reduce((acc, s) => acc + (s.plan_price || 20000), 0);
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-sans flex flex-col">
@@ -363,7 +365,7 @@ export default function SuperAdminDashboardPage() {
                       <td className="p-4">
                         {shop.subscription_status === 'active' && shop.active ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold uppercase text-[10px]">
-                            <CheckCircle2 className="w-3 h-3" /> Pagado ($15.000)
+                            <CheckCircle2 className="w-3 h-3" /> Pagado (${Number(shop.plan_price || 20000).toLocaleString('es-AR')})
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold uppercase text-[10px]">

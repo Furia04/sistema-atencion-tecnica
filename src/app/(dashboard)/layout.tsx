@@ -60,7 +60,7 @@ export default function DashboardLayout({
           name: dbShop.name || 'Mi Taller',
           owner_email: dbShop.owner_email || profile.email,
           subscription_status: dbShop.subscription_status || 'pending_payment',
-          plan_price: Number(dbShop.plan_price) || 15000,
+          plan_price: Number(dbShop.plan_price) || 20000,
           active: dbShop.active ?? false,
           created_at: dbShop.created_at || new Date().toISOString(),
         });
@@ -70,7 +70,7 @@ export default function DashboardLayout({
           name: profile.full_name ? `Taller de ${profile.full_name}` : 'Mi Taller',
           owner_email: profile.email,
           subscription_status: 'pending_payment',
-          plan_price: 15000,
+          plan_price: 20000,
           active: false,
           created_at: new Date().toISOString(),
         });
@@ -140,7 +140,7 @@ export default function DashboardLayout({
                   Tu Taller Se Encuentra Suspendido
                 </h2>
                 <p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-                  El acceso a las órdenes de servicio, inventario y datos ha sido suspendido desde el panel de administración por falta de pago o baja de membresía ($15.000 ARS/mes).
+                  El acceso a las órdenes de servicio, inventario y datos ha sido suspendido desde el panel de administración por falta de pago o baja de membresía ($20.000 ARS/mes).
                 </p>
               </div>
 
@@ -173,7 +173,7 @@ export default function DashboardLayout({
                   <RefreshCw className="w-4 h-4 text-primary" /> Reintentar Verificación
                 </button>
                 <a
-                  href={`https://wa.me/?text=Hola,%20les%20escribo%20porque%20mi%20taller%20(${userShop?.name || 'Taller'})%20se%20encuentra%20suspendido%20y%20ya%20realicé%20la%20transferencia%20de%20%2415.000.`}
+                  href={`https://wa.me/?text=Hola,%20les%20escribo%20porque%20mi%20taller%20(${userShop?.name || 'Taller'})%20se%20encuentra%20suspendido%20y%20ya%20realicé%20la%20transferencia%20de%20%2420.000.`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
@@ -197,7 +197,7 @@ export default function DashboardLayout({
                   ¡Bienvenido a JaTech!
                 </h2>
                 <p className="font-body-md text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto">
-                  Para ingresar por primera vez a tu panel y emitir órdenes de servicio con comanda de 80mm, completa el pago inicial de tu membresía ($15.000 ARS/mes).
+                  Para ingresar por primera vez a tu panel y emitir órdenes de servicio con comanda de 80mm, completa el pago inicial de tu membresía ($20.000 ARS/mes).
                 </p>
               </div>
 
@@ -206,7 +206,7 @@ export default function DashboardLayout({
                 <div className="flex justify-between items-center bg-surface-container p-3 rounded-xl border border-outline-variant/40">
                   <div>
                     <div className="text-on-surface font-bold text-sm">JATECH.OPS.MP</div>
-                    <div className="text-on-surface-variant text-[10px]">MercadoPago / CBU • $15.000 ARS</div>
+                    <div className="text-on-surface-variant text-[10px]">MercadoPago / CBU • $20.000 ARS</div>
                   </div>
                   <button
                     onClick={() => {
@@ -227,7 +227,7 @@ export default function DashboardLayout({
                   href="/checkout"
                   className="flex-1 bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
                 >
-                  <CreditCard className="w-4 h-4" /> Ir a Pasarela de Pago ($15.000)
+                  <CreditCard className="w-4 h-4" /> Ir a Pasarela de Pago ($20.000)
                 </Link>
                 <button
                   onClick={loadUserAndShopStatus}

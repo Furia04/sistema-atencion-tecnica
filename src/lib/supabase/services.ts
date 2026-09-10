@@ -106,7 +106,7 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
           name: s.name || 'Taller sin nombre',
           owner_email: s.owner_email || 'Sin correo',
           subscription_status: s.subscription_status || 'pending_payment',
-          plan_price: Number(s.plan_price) || 15000,
+          plan_price: Number(s.plan_price) || 20000,
           active: s.active ?? false,
           created_at: s.created_at || new Date().toISOString(),
           orders_count: ordersCountMap[s.id] || 0,
@@ -127,7 +127,7 @@ export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
             name: u.full_name ? `Taller de ${u.full_name}` : `Taller (${u.email})`,
             owner_email: u.email,
             subscription_status: 'pending_payment',
-            plan_price: 15000,
+            plan_price: 20000,
             active: false,
             created_at: u.created_at || new Date().toISOString(),
             orders_count: ordersCountMap[targetShopId] || 0,
@@ -171,7 +171,7 @@ export async function updateShopSubscriptionStatus(
           name: userProfile.full_name ? `Taller de ${userProfile.full_name}` : `Taller (${userProfile.email})`,
           owner_email: userProfile.email,
           subscription_status: status,
-          plan_price: 15000,
+          plan_price: 20000,
           active: active,
         }]);
       }

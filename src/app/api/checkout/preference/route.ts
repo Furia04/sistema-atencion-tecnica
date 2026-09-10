@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     const preference = new Preference(client);
 
-    const price = Number(planPrice) > 0 ? Number(planPrice) : 15000;
+    const price = Number(planPrice) > 0 ? Number(planPrice) : 20000;
     const cleanShopName = shopName?.trim() || 'Taller de Servicio Técnico';
 
     const preferenceData = {

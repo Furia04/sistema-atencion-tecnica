@@ -74,7 +74,7 @@ export default function RegisterPage() {
           name: cleanShopName,
           owner_email: cleanEmail,
           subscription_status: 'pending_payment',
-          plan_price: 15000,
+          plan_price: 20000,
           active: false,
         }], { onConflict: 'id' });
       } catch (err) {
@@ -103,7 +103,7 @@ export default function RegisterPage() {
         name: cleanShopName,
         owner_email: cleanEmail,
         subscription_status: 'pending_payment',
-        plan_price: 15000,
+        plan_price: 20000,
         active: false,
         created_at: new Date().toISOString(),
         orders_count: 0,

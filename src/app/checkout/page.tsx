@@ -92,7 +92,7 @@ function CheckoutContent() {
           shopId: targetShopId,
           email: targetEmail,
           shopName: targetShopName,
-          planPrice: shop?.plan_price || 15000,
+          planPrice: shop?.plan_price || 20000,
         }),
       });
 
@@ -151,7 +151,7 @@ function CheckoutContent() {
 
           <div className="text-right self-end sm:self-auto">
             <div className="font-display-lg text-3xl font-bold text-emerald-400 font-mono-data">
-              ${Number(shop?.plan_price || 15000).toLocaleString('es-AR')}
+              ${Number(shop?.plan_price || 20000).toLocaleString('es-AR')}
             </div>
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase font-bold">
               ARS / mes
@@ -248,7 +248,7 @@ function CheckoutContent() {
             <div className="text-center pt-2 border-t border-outline-variant/40">
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(
-                  `Hola, acabo de abonar la membresía de $15.000 para el taller ${shop?.name || user?.email || ''} en JaTech.`
+                  `Hola, acabo de abonar la membresía de $20.000 para el taller ${shop?.name || user?.email || ''} en JaTech.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

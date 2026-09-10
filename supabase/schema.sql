@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS shops (
   slug TEXT,
   owner_email TEXT,
   subscription_status TEXT DEFAULT 'pending_payment',
-  plan_price NUMERIC(10,2) DEFAULT 15000.00,
+  plan_price NUMERIC(10,2) DEFAULT 20000.00,
   active BOOLEAN DEFAULT FALSE,
   settings JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -52,7 +52,7 @@ ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS slug TEXT;
 ALTER TABLE public.shops ALTER COLUMN slug DROP NOT NULL;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS owner_email TEXT;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'pending_payment';
-ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS plan_price NUMERIC(10,2) DEFAULT 15000.00;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS plan_price NUMERIC(10,2) DEFAULT 20000.00;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
@@ -363,7 +363,7 @@ BEGIN
     v_slug,
     NEW.email,
     'pending_payment',
-    15000.00,
+    20000.00,
     FALSE
   )
   ON CONFLICT (id) DO UPDATE
@@ -406,7 +406,7 @@ SELECT
   LOWER(REGEXP_REPLACE(COALESCE(raw_user_meta_data->>'shop_name', email), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || SUBSTRING(id::text, 1, 8),
   email,
   'pending_payment',
-  15000.00,
+  20000.00,
   FALSE
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;

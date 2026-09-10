@@ -560,7 +560,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 6. PLAN ÚNICO PLAN TALLER PRO ($15.000 / MES) */}
+      {/* 6. PLAN ÚNICO PLAN TALLER PRO ($20.000 / MES) */}
       <section id="planes" className="py-24 px-6 bg-[#090b0e] border-b border-white/[0.08]">
         <div className="max-w-4xl mx-auto space-y-10 text-center">
           
@@ -591,7 +591,7 @@ export default function LandingPage() {
               </p>
               <div className="pt-2 flex items-baseline gap-2">
                 <span className="font-mono text-4xl sm:text-5xl font-bold text-white tracking-tight">
-                  $15.000
+                  $20.000
                 </span>
                 <span className="font-mono text-xs text-slate-400">
                   ARS / mes

@@ -81,7 +81,7 @@ export default function TermsOfServicePage() {
               <ShieldCheck className="w-5 h-5 text-purple-400" /> 4. Planes, Suscripción y Política de Suspensión
             </h2>
             <p>
-              El uso comercial continuo de la plataforma JaTech requiere una membresía activa de <strong>$15.000 ARS/mes</strong> (o la tarifa vigente contratada).
+              El uso comercial continuo de la plataforma JaTech requiere una membresía activa de <strong>$20.000 ARS/mes</strong> (o la tarifa vigente contratada).
             </p>
             <ul className="list-disc pl-5 space-y-1.5">
               <li><strong>Activación:</strong> La suscripción se habilita de inmediato al confirmar el pago mediante pasarela instantánea o comprobante de transferencia bancaria.</li>
