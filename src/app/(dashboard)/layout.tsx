@@ -166,19 +166,28 @@ export default function DashboardLayout({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Link
+                  href={`/checkout${userShop?.id ? `?shop_id=${userShop.id}` : ''}`}
+                  className="flex-1 bg-primary text-on-primary hover:bg-primary-container font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <CreditCard className="w-4 h-4" /> Reactivar con Mercado Pago ($20.000)
+                </Link>
                 <button
                   onClick={loadUserAndShopStatus}
-                  className="flex-1 bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant text-on-surface font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-surface-container-high border border-outline-variant hover:bg-surface-container-highest text-on-surface font-title-sm text-xs font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2"
                 >
-                  <RefreshCw className="w-4 h-4 text-primary" /> Reintentar Verificación
+                  <RefreshCw className="w-4 h-4 text-primary" /> Ya pagué, verificar
                 </button>
+              </div>
+
+              <div className="text-center pt-1 border-t border-outline-variant/40">
                 <a
                   href={`https://wa.me/?text=Hola,%20les%20escribo%20porque%20mi%20taller%20(${userShop?.name || 'Taller'})%20se%20encuentra%20suspendido%20y%20ya%20realicé%20la%20transferencia%20de%20%2420.000.`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                  className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-emerald-400 font-semibold transition-colors"
                 >
-                  <MessageSquare className="w-4 h-4" /> Notificar Pago WhatsApp
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-400" /> ¿Pagaste por transferencia? Notificar por WhatsApp
                 </a>
               </div>
             </div>
