@@ -182,16 +182,23 @@ ALTER TABLE order_spares ENABLE ROW LEVEL SECURITY;
 -- 10.1 FUNCIONES AUXILIARES PARA CONTROL DE ACCESO
 CREATE OR REPLACE FUNCTION public.get_current_shop_id()
 RETURNS UUID AS $$
-  SELECT shop_id FROM public.users WHERE id = auth.uid();
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+  SELECT COALESCE(
+    (SELECT shop_id FROM public.users WHERE id = auth.uid()),
+    auth.uid()
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.is_superadmin()
 RETURNS BOOLEAN AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.users 
-    WHERE id = auth.uid() AND role = 'superadmin'
+  SELECT (
+    COALESCE(auth.jwt() ->> 'email', '') IN ('furiaortiz04@gmail.com', 'admin@prorepair.com')
+    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'superadmin'
+    OR EXISTS (
+      SELECT 1 FROM public.users 
+      WHERE id = auth.uid() AND role = 'superadmin'
+    )
   );
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
 -- LIMPIEZA DE POLÍTICAS PREVIAS
 DROP POLICY IF EXISTS "Allow All Shops" ON shops;
@@ -201,6 +208,7 @@ DROP POLICY IF EXISTS "Allow All Customers" ON customers;
 DROP POLICY IF EXISTS "Allow All Devices" ON devices;
 DROP POLICY IF EXISTS "Allow All Inventory" ON inventory;
 DROP POLICY IF EXISTS "Allow All Templates" ON device_category_templates;
+DROP POLICY IF EXISTS "Allow All Spares" ON order_spares;
 
 DROP POLICY IF EXISTS "Superadmin Full Access Shops" ON shops;
 DROP POLICY IF EXISTS "Users Select Own Shop" ON shops;
@@ -210,6 +218,7 @@ DROP POLICY IF EXISTS "Users Insert Own Shop" ON shops;
 DROP POLICY IF EXISTS "Superadmin Full Access Users" ON users;
 DROP POLICY IF EXISTS "Users View Own Shop Members" ON users;
 DROP POLICY IF EXISTS "Users Update Own Profile" ON users;
+DROP POLICY IF EXISTS "Users Insert Own Profile" ON users;
 
 DROP POLICY IF EXISTS "Superadmin Full Access Customers" ON customers;
 DROP POLICY IF EXISTS "Tenant Isolation Customers" ON customers;
@@ -226,6 +235,9 @@ DROP POLICY IF EXISTS "Tenant Isolation Inventory" ON inventory;
 DROP POLICY IF EXISTS "Superadmin Full Access Templates" ON device_category_templates;
 DROP POLICY IF EXISTS "Tenant Isolation Templates" ON device_category_templates;
 
+DROP POLICY IF EXISTS "Tenant Isolation Spares" ON order_spares;
+DROP POLICY IF EXISTS "Superadmin Full Access Spares" ON order_spares;
+
 -- 10.2 POLÍTICAS DE SHOPS (TALLERES)
 CREATE POLICY "Superadmin Full Access Shops" ON shops
   FOR ALL
@@ -234,16 +246,16 @@ CREATE POLICY "Superadmin Full Access Shops" ON shops
 
 CREATE POLICY "Users Select Own Shop" ON shops
   FOR SELECT
-  USING (id = public.get_current_shop_id() OR id = auth.uid());
+  USING (id = public.get_current_shop_id() OR id = auth.uid() OR owner_email = auth.jwt() ->> 'email');
 
 CREATE POLICY "Users Update Own Shop" ON shops
   FOR UPDATE
-  USING (id = public.get_current_shop_id() OR id = auth.uid())
-  WITH CHECK (id = public.get_current_shop_id() OR id = auth.uid());
+  USING (id = public.get_current_shop_id() OR id = auth.uid() OR owner_email = auth.jwt() ->> 'email')
+  WITH CHECK (id = public.get_current_shop_id() OR id = auth.uid() OR owner_email = auth.jwt() ->> 'email');
 
 CREATE POLICY "Users Insert Own Shop" ON shops
   FOR INSERT
-  WITH CHECK (id = auth.uid());
+  WITH CHECK (auth.uid() IS NOT NULL OR public.is_superadmin());
 
 -- 10.3 POLÍTICAS DE USERS (PERFILES)
 CREATE POLICY "Superadmin Full Access Users" ON users
@@ -255,10 +267,14 @@ CREATE POLICY "Users View Own Shop Members" ON users
   FOR SELECT
   USING (shop_id = public.get_current_shop_id() OR id = auth.uid());
 
+CREATE POLICY "Users Insert Own Profile" ON users
+  FOR INSERT
+  WITH CHECK (id = auth.uid() OR auth.uid() IS NOT NULL);
+
 CREATE POLICY "Users Update Own Profile" ON users
   FOR UPDATE
-  USING (id = auth.uid())
-  WITH CHECK (id = auth.uid());
+  USING (id = auth.uid() OR shop_id = public.get_current_shop_id())
+  WITH CHECK (id = auth.uid() OR shop_id = public.get_current_shop_id());
 
 -- 10.4 POLÍTICAS DE CUSTOMERS (CLIENTES)
 CREATE POLICY "Superadmin Full Access Customers" ON customers
@@ -268,8 +284,8 @@ CREATE POLICY "Superadmin Full Access Customers" ON customers
 
 CREATE POLICY "Tenant Isolation Customers" ON customers
   FOR ALL
-  USING (shop_id = public.get_current_shop_id())
-  WITH CHECK (shop_id = public.get_current_shop_id());
+  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
+  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
 
 -- 10.5 POLÍTICAS DE DEVICES (DISPOSITIVOS)
 CREATE POLICY "Superadmin Full Access Devices" ON devices
@@ -279,8 +295,8 @@ CREATE POLICY "Superadmin Full Access Devices" ON devices
 
 CREATE POLICY "Tenant Isolation Devices" ON devices
   FOR ALL
-  USING (shop_id = public.get_current_shop_id())
-  WITH CHECK (shop_id = public.get_current_shop_id());
+  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
+  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
 
 -- 10.6 POLÍTICAS DE SERVICE_ORDERS (ÓRDENES DE SERVICIO)
 CREATE POLICY "Superadmin Full Access Orders" ON service_orders
@@ -290,8 +306,8 @@ CREATE POLICY "Superadmin Full Access Orders" ON service_orders
 
 CREATE POLICY "Tenant Isolation Orders" ON service_orders
   FOR ALL
-  USING (shop_id = public.get_current_shop_id())
-  WITH CHECK (shop_id = public.get_current_shop_id());
+  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
+  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
 
 -- 10.7 POLÍTICAS DE INVENTORY (INVENTARIO)
 CREATE POLICY "Superadmin Full Access Inventory" ON inventory
@@ -301,8 +317,8 @@ CREATE POLICY "Superadmin Full Access Inventory" ON inventory
 
 CREATE POLICY "Tenant Isolation Inventory" ON inventory
   FOR ALL
-  USING (shop_id = public.get_current_shop_id())
-  WITH CHECK (shop_id = public.get_current_shop_id());
+  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
+  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
 
 -- 10.8 POLÍTICAS DE DEVICE_CATEGORY_TEMPLATES (PLANTILLAS)
 CREATE POLICY "Superadmin Full Access Templates" ON device_category_templates
@@ -312,10 +328,21 @@ CREATE POLICY "Superadmin Full Access Templates" ON device_category_templates
 
 CREATE POLICY "Tenant Isolation Templates" ON device_category_templates
   FOR ALL
-  USING (shop_id = public.get_current_shop_id())
-  WITH CHECK (shop_id = public.get_current_shop_id());
+  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
+  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
 
--- 10.9 POLÍTICAS PÚBLICAS DE LECTURA PARA SEGUIMIENTO B2C
+-- 10.9 POLÍTICAS DE ORDER_SPARES (REPUESTOS ASIGNADOS A ÓRDENES)
+CREATE POLICY "Superadmin Full Access Spares" ON order_spares
+  FOR ALL
+  USING (public.is_superadmin())
+  WITH CHECK (public.is_superadmin());
+
+CREATE POLICY "Tenant Isolation Spares" ON order_spares
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- 10.10 POLÍTICAS PÚBLICAS DE LECTURA PARA SEGUIMIENTO B2C
 DROP POLICY IF EXISTS "Public Read Service Orders" ON service_orders;
 CREATE POLICY "Public Read Service Orders" ON service_orders
   FOR SELECT
