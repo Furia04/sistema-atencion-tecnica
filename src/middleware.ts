@@ -67,7 +67,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/devices') ||
     pathname.startsWith('/settings');
 
-  const isAdminRoute = pathname.startsWith('/admin') && pathname !== '/admin/login';
+  const isApiAdminRoute = pathname.startsWith('/api/admin');
+  const isAdminPageRoute = pathname.startsWith('/admin') && pathname !== '/admin/login';
 
   // 1. Redirigir a /login si intenta entrar a rutas del taller sin estar autenticado
   if (isProtectedWorkshopRoute && !user) {
@@ -76,8 +77,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 2. Control estricto de Super Administrador en servidor
-  if (isAdminRoute) {
+  // 2. Control estricto de Super Administrador en endpoints /api/admin/...
+  if (isApiAdminRoute) {
+    if (!user) {
+      return NextResponse.json(
+        { error: 'No autorizado: Se requiere inicio de sesión.' },
+        { status: 401 }
+      );
+    }
+
+    const isSuperAdmin =
+      user.user_metadata?.role === 'superadmin' ||
+      user.email === 'furiaortiz04@gmail.com' ||
+      user.email === process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL;
+
+    if (!isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Acceso denegado: Se requieren permisos de Super Administrador.' },
+        { status: 403 }
+      );
+    }
+  }
+
+  // 3. Control estricto de Super Administrador en interfaz web (/admin)
+  if (isAdminPageRoute) {
     if (!user) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
@@ -92,7 +115,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 3. Si ya está autenticado, no permitir acceso a login o registro
+  // 4. Si ya está autenticado, no permitir acceso a login o registro
   if ((pathname === '/login' || pathname === '/register') && user) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

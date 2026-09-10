@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthListener } from '@/components/auth/auth-listener';
 
 export const metadata: Metadata = {
   title: 'JaTech - Software para técnicos',
@@ -14,8 +15,10 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <body className="bg-background text-on-surface font-sans min-h-screen antialiased">
+        <AuthListener />
         {children}
       </body>
     </html>
   );
 }
+

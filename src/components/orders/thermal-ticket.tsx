@@ -127,9 +127,21 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
             )}
 
             {order.final_price && order.final_price > 0 ? (
-              <div className="flex justify-between font-bold text-sm py-1 border-b border-dashed border-black">
-                <span>PRECIO ESTIMADO:</span>
-                <span>${order.final_price.toLocaleString('es-AR')}</span>
+              <div className="space-y-1 py-1.5 border-b border-dashed border-black text-[11px]">
+                <div className="flex justify-between font-bold">
+                  <span>PRECIO ESTIMADO:</span>
+                  <span>${order.final_price.toLocaleString('es-AR')}</span>
+                </div>
+                {(order.advance_payment || 0) > 0 && (
+                  <div className="flex justify-between text-slate-800">
+                    <span>SEÑA ({(order.payment_method || 'efectivo').toUpperCase()}):</span>
+                    <span>-${(order.advance_payment || 0).toLocaleString('es-AR')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-extrabold border-t border-dotted border-black pt-1">
+                  <span>SALDO AL RETIRAR:</span>
+                  <span>${Math.max(0, (order.final_price || 0) - (order.advance_payment || 0)).toLocaleString('es-AR')}</span>
+                </div>
               </div>
             ) : null}
 
@@ -185,6 +197,22 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Resumen Financiero en Hoja A4 */}
+            <div className="grid grid-cols-3 gap-3 bg-slate-100 p-3 rounded-lg border border-slate-300 text-center font-mono">
+              <div>
+                <span className="text-[9px] uppercase font-bold text-slate-600 block">PRESUPUESTO</span>
+                <span className="font-bold text-xs">${(order.final_price || 0).toLocaleString('es-AR')}</span>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-bold text-emerald-800 block">SEÑA RECIBIDA</span>
+                <span className="font-bold text-xs text-emerald-800">${(order.advance_payment || 0).toLocaleString('es-AR')} ({(order.payment_method || 'efectivo').toUpperCase()})</span>
+              </div>
+              <div>
+                <span className="text-[9px] uppercase font-extrabold text-slate-900 block">SALDO A COBRAR</span>
+                <span className="font-extrabold text-xs text-slate-900">${Math.max(0, (order.final_price || 0) - (order.advance_payment || 0)).toLocaleString('es-AR')}</span>
+              </div>
             </div>
 
             <div className="border-t border-slate-300 pt-2 text-[10px] text-slate-600 leading-relaxed">
@@ -249,9 +277,12 @@ export const ThermalTicket: React.FC<ThermalTicketProps> = ({ order, shop, onClo
           </div>
 
           {order.final_price && order.final_price > 0 ? (
-            <div className="flex justify-between font-bold text-xs pb-2 mb-2 border-b border-dashed border-black">
-              <span>PRECIO:</span>
-              <span>${order.final_price.toLocaleString('es-AR')}</span>
+            <div className="pb-2 mb-2 border-b border-dashed border-black space-y-0.5">
+              <div><strong>TOTAL:</strong> ${order.final_price.toLocaleString('es-AR')}</div>
+              {(order.advance_payment || 0) > 0 && (
+                <div><strong>SEÑA ({(order.payment_method || 'efectivo').toUpperCase()}):</strong> -${(order.advance_payment || 0).toLocaleString('es-AR')}</div>
+              )}
+              <div><strong>SALDO A COBRAR:</strong> ${Math.max(0, (order.final_price || 0) - (order.advance_payment || 0)).toLocaleString('es-AR')}</div>
             </div>
           ) : null}
 

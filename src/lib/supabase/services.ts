@@ -345,6 +345,9 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
       estimated_completion: ord.estimated_completion,
       estimated_cost: ord.estimated_cost,
       final_price: ord.final_price,
+      advance_payment: Number(ord.advance_payment) || 0,
+      payment_method: ord.payment_method || 'efectivo',
+      device_photos: Array.isArray(ord.device_photos) ? ord.device_photos : [],
       warranty_period: ord.warranty_period,
       warranty_until: ord.warranty_until,
       delivered_at: ord.delivered_at,
@@ -374,7 +377,15 @@ export async function fetchServiceOrders(): Promise<ServiceOrder[]> {
 export async function createServiceOrderWithDevice(orderPayload: {
   customer: { full_name: string; phone: string; document_id?: string; email?: string };
   device: { type: string; brand: string; model: string; serial_number?: string; custom_attributes?: any };
-  order: { reported_fault: string; estimated_cost?: number; final_price?: number; tracking_code?: string };
+  order: {
+    reported_fault: string;
+    estimated_cost?: number;
+    final_price?: number;
+    advance_payment?: number;
+    payment_method?: string;
+    device_photos?: string[];
+    tracking_code?: string;
+  };
 }) {
   const profile = await getCurrentUserProfile();
   let shopId = profile?.shop_id || profile?.id;
@@ -456,6 +467,9 @@ export async function createServiceOrderWithDevice(orderPayload: {
       reported_fault: orderPayload.order.reported_fault,
       estimated_cost: orderPayload.order.estimated_cost || 0,
       final_price: orderPayload.order.final_price || 0,
+      advance_payment: orderPayload.order.advance_payment || 0,
+      payment_method: orderPayload.order.payment_method || 'efectivo',
+      device_photos: orderPayload.order.device_photos || [],
     }])
     .select()
     .single();
@@ -476,7 +490,10 @@ export async function updateServiceOrderStatus(
   warrantyPeriod?: string,
   warrantyUntil?: string,
   deliveredAt?: string,
-  trackingCode?: string
+  trackingCode?: string,
+  advancePayment?: number,
+  paymentMethod?: string,
+  devicePhotos?: string[]
 ) {
   // 1. SIEMPRE sincronizar en localStorage de forma instantánea
   if (typeof window !== 'undefined') {
@@ -491,6 +508,9 @@ export async function updateServiceOrderStatus(
               status,
               technical_diagnosis: technicalDiagnosis !== undefined ? technicalDiagnosis : o.technical_diagnosis,
               final_price: finalPrice !== undefined ? finalPrice : o.final_price,
+              advance_payment: advancePayment !== undefined ? advancePayment : o.advance_payment,
+              payment_method: paymentMethod !== undefined ? paymentMethod : o.payment_method,
+              device_photos: devicePhotos !== undefined ? devicePhotos : o.device_photos,
               warranty_period: warrantyPeriod !== undefined ? warrantyPeriod : o.warranty_period,
               warranty_until: warrantyUntil !== undefined ? warrantyUntil : o.warranty_until,
               delivered_at: deliveredAt !== undefined ? deliveredAt : o.delivered_at,
@@ -516,6 +536,9 @@ export async function updateServiceOrderStatus(
     updated_at: new Date().toISOString(),
   };
 
+  if (advancePayment !== undefined) updateData.advance_payment = advancePayment;
+  if (paymentMethod !== undefined) updateData.payment_method = paymentMethod;
+  if (devicePhotos !== undefined) updateData.device_photos = devicePhotos;
   if (warrantyPeriod !== undefined) updateData.warranty_period = warrantyPeriod;
   if (warrantyUntil !== undefined) updateData.warranty_until = warrantyUntil;
   if (deliveredAt !== undefined) updateData.delivered_at = deliveredAt;

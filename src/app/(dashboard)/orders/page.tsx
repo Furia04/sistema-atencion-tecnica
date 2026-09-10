@@ -28,12 +28,14 @@ import {
   Send,
   ShieldCheck,
   PackageCheck,
+  Camera,
 } from 'lucide-react';
 import { PatternLockInput } from '@/components/orders/pattern-lock-input';
 import { InventoryItem, OrderStatus, ServiceOrder, Shop, UserProfile } from '@/types';
 import { BudgetCalculator } from '@/components/orders/budget-calculator';
 import { ThermalTicket } from '@/components/orders/thermal-ticket';
 import { DeliveryTicket } from '@/components/orders/delivery-ticket';
+import { PhotoUploader } from '@/components/orders/photo-uploader';
 import { fetchServiceOrders, updateServiceOrderStatus, fetchInventory, fetchCurrentShop } from '@/lib/supabase/services';
 import { supabase } from '@/lib/supabase/client';
 
@@ -50,7 +52,7 @@ export default function ServiceOrdersPage() {
   const [editingOrder, setEditingOrder] = useState<ServiceOrder | null>(null);
   const [printingOrder, setPrintingOrder] = useState<ServiceOrder | null>(null);
   const [deliveryTicketOrder, setDeliveryTicketOrder] = useState<ServiceOrder | null>(null);
-  const [activeModalTab, setActiveModalTab] = useState<'details' | 'budget'>('details');
+  const [activeModalTab, setActiveModalTab] = useState<'details' | 'budget' | 'photos'>('details');
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Estado para Alerta de Notificación por WhatsApp
@@ -135,7 +137,10 @@ export default function ServiceOrdersPage() {
         effectiveWarrantyPeriod,
         calculatedWarrantyUntil,
         calculatedDeliveredAt,
-        editingOrder.tracking_code
+        editingOrder.tracking_code,
+        editingOrder.advance_payment,
+        editingOrder.payment_method,
+        editingOrder.device_photos
       );
 
       const updatedOrder: ServiceOrder = {
@@ -339,14 +344,30 @@ export default function ServiceOrdersPage() {
                       </div>
                     </td>
                     <td className="p-4 font-sans font-semibold text-on-surface">
-                      {ord.device_info}
+                      <div>{ord.device_info}</div>
+                      {ord.device_photos && ord.device_photos.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-primary font-bold mt-0.5">
+                          <Camera className="w-3 h-3" /> {ord.device_photos.length} fotos
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 font-sans text-on-surface-variant max-w-xs truncate">
                       {ord.reported_fault}
                     </td>
                     <td className="p-4">{getStatusBadge(ord.status)}</td>
                     <td className="p-4 text-right font-bold text-on-surface text-sm">
-                      ${(ord.final_price || 0).toLocaleString('es-AR')}
+                      <div>${(ord.final_price || 0).toLocaleString('es-AR')}</div>
+                      {(ord.advance_payment || 0) > 0 && (
+                        <div className="text-[10px] font-mono">
+                          {(ord.final_price || 0) <= (ord.advance_payment || 0) ? (
+                            <span className="text-emerald-400 font-bold">✓ Saldado</span>
+                          ) : (
+                            <span className="text-amber-400 font-bold">
+                              Resta: ${((ord.final_price || 0) - (ord.advance_payment || 0)).toLocaleString('es-AR')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4 text-center space-x-1.5">
                       {/* Botón Editar / Diagnóstico */}
@@ -435,10 +456,10 @@ export default function ServiceOrdersPage() {
             </div>
 
             {/* Pestañas del Modal */}
-            <div className="flex border-b border-outline-variant">
+            <div className="flex border-b border-outline-variant gap-1 overflow-x-auto">
               <button
                 onClick={() => setActiveModalTab('details')}
-                className={`pb-2.5 px-4 text-xs font-title-sm font-bold border-b-2 transition-all ${
+                className={`pb-2.5 px-4 text-xs font-title-sm font-bold border-b-2 transition-all whitespace-nowrap ${
                   activeModalTab === 'details'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-on-surface-variant hover:text-on-surface'
@@ -448,13 +469,23 @@ export default function ServiceOrdersPage() {
               </button>
               <button
                 onClick={() => setActiveModalTab('budget')}
-                className={`pb-2.5 px-4 text-xs font-title-sm font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+                className={`pb-2.5 px-4 text-xs font-title-sm font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   activeModalTab === 'budget'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <Calculator className="w-3.5 h-3.5" /> Calculadora de Repuestos & Precio
+                <Calculator className="w-3.5 h-3.5" /> Calculadora de Repuestos
+              </button>
+              <button
+                onClick={() => setActiveModalTab('photos')}
+                className={`pb-2.5 px-4 text-xs font-title-sm font-bold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeModalTab === 'photos'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" /> Evidencias Fotográficas ({editingOrder.device_photos?.length || 0})
               </button>
             </div>
 
@@ -502,22 +533,98 @@ export default function ServiceOrdersPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-on-surface-variant uppercase mb-1">
-                    Precio Final ($ ARS)
-                  </label>
-                  <input
-                    type="number"
-                    value={editingOrder.final_price || ''}
-                    onChange={(e) =>
-                      setEditingOrder({
-                        ...editingOrder,
-                        final_price: Number(e.target.value),
-                      })
-                    }
-                    placeholder="Ej: 25000"
-                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl p-2.5 text-xs text-on-surface font-mono font-bold"
-                  />
+                {/* GESTIÓN FINANCIERA: PRECIO, SEÑA Y SALDO */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3.5 space-y-3">
+                  <div className="flex justify-between items-center border-b border-outline-variant/60 pb-2">
+                    <span className="font-bold uppercase text-[11px] text-on-surface flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Resumen Financiero & Seña
+                    </span>
+                    {(editingOrder.final_price || 0) > (editingOrder.advance_payment || 0) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            advance_payment: editingOrder.final_price || 0,
+                          })
+                        }
+                        className="text-[10px] bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded font-bold transition-colors"
+                      >
+                        ✓ Marcar como 100% Saldado
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="block font-bold text-on-surface-variant text-[10px] uppercase mb-1">
+                        Precio Total ($ ARS)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingOrder.final_price ?? ''}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            final_price: Number(e.target.value),
+                          })
+                        }
+                        placeholder="0.00"
+                        className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2 text-xs text-on-surface font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-emerald-400 text-[10px] uppercase mb-1">
+                        Seña / Anticipo ($)
+                      </label>
+                      <input
+                        type="number"
+                        value={editingOrder.advance_payment ?? ''}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            advance_payment: Number(e.target.value),
+                          })
+                        }
+                        placeholder="0.00"
+                        className="w-full bg-surface-container-high border border-emerald-500/40 rounded-lg p-2 text-xs text-emerald-400 font-mono font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-on-surface-variant text-[10px] uppercase mb-1">
+                        Medio de Pago
+                      </label>
+                      <select
+                        value={editingOrder.payment_method || 'efectivo'}
+                        onChange={(e) =>
+                          setEditingOrder({
+                            ...editingOrder,
+                            payment_method: e.target.value,
+                          })
+                        }
+                        className="w-full bg-surface-container-high border border-outline-variant rounded-lg p-2 text-xs text-on-surface font-bold"
+                      >
+                        <option value="efectivo">💵 Efectivo</option>
+                        <option value="transferencia">🏦 Transferencia</option>
+                        <option value="mercadopago">📱 Mercado Pago</option>
+                        <option value="debito">💳 Débito</option>
+                        <option value="credito">💳 Crédito</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-outline-variant/60 font-mono text-xs">
+                    <span className="text-on-surface-variant">Saldo Restante a Cobrar:</span>
+                    <span className={`font-extrabold text-sm ${
+                      (editingOrder.final_price || 0) <= (editingOrder.advance_payment || 0)
+                        ? 'text-emerald-400'
+                        : 'text-amber-400'
+                    }`}>
+                      ${Math.max(0, (editingOrder.final_price || 0) - (editingOrder.advance_payment || 0)).toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* OTORGAR GARANTÍA DE SERVICIO (AL ENTREGAR) */}
@@ -565,6 +672,27 @@ export default function ServiceOrdersPage() {
                     />
                   </div>
                 )}
+              </div>
+            ) : activeModalTab === 'photos' ? (
+              <div className="space-y-4">
+                <div className="border-b border-outline-variant/60 pb-2">
+                  <h4 className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-primary" /> Evidencias Visuales del Equipo
+                  </h4>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Fotos tomadas al ingresar o durante el proceso de reparación técnica.
+                  </p>
+                </div>
+                <PhotoUploader
+                  photos={editingOrder.device_photos || []}
+                  onChange={(newPhotos) =>
+                    setEditingOrder({
+                      ...editingOrder,
+                      device_photos: newPhotos,
+                    })
+                  }
+                  maxPhotos={8}
+                />
               </div>
             ) : (
               <BudgetCalculator

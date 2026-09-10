@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { verifySuperAdminUser } from '@/lib/supabase/admin-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xyzcompany.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'public-anon-key';
@@ -10,6 +11,14 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 
 export async function POST(request: Request) {
   try {
+    const authCheck = await verifySuperAdminUser();
+    if (!authCheck.authorized) {
+      return NextResponse.json(
+        { error: authCheck.error || 'No autorizado' },
+        { status: authCheck.statusCode || 401 }
+      );
+    }
+
     const body = await request.json();
     const { shopId, status, active } = body;
 

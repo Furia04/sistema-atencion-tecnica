@@ -77,6 +77,9 @@ export interface ServiceOrder {
   estimated_completion?: string;
   estimated_cost?: number;
   final_price?: number;
+  advance_payment?: number;
+  payment_method?: string;
+  device_photos?: string[];
   warranty_period?: string;
   warranty_until?: string;
   delivered_at?: string;

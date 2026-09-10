@@ -115,6 +115,9 @@ CREATE TABLE IF NOT EXISTS service_orders (
   estimated_completion TEXT,
   estimated_cost NUMERIC(10,2) DEFAULT 0.00,
   final_price NUMERIC(10,2) DEFAULT 0.00,
+  advance_payment NUMERIC(10,2) DEFAULT 0.00,
+  payment_method TEXT DEFAULT 'efectivo',
+  device_photos JSONB DEFAULT '[]'::jsonb,
   warranty_period TEXT,
   warranty_until TIMESTAMPTZ,
   delivered_at TIMESTAMPTZ,
@@ -284,8 +287,8 @@ CREATE POLICY "Superadmin Full Access Customers" ON customers
 
 CREATE POLICY "Tenant Isolation Customers" ON customers
   FOR ALL
-  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
-  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- 10.5 POLÍTICAS DE DEVICES (DISPOSITIVOS)
 CREATE POLICY "Superadmin Full Access Devices" ON devices
@@ -295,8 +298,8 @@ CREATE POLICY "Superadmin Full Access Devices" ON devices
 
 CREATE POLICY "Tenant Isolation Devices" ON devices
   FOR ALL
-  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
-  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- 10.6 POLÍTICAS DE SERVICE_ORDERS (ÓRDENES DE SERVICIO)
 CREATE POLICY "Superadmin Full Access Orders" ON service_orders
@@ -306,8 +309,8 @@ CREATE POLICY "Superadmin Full Access Orders" ON service_orders
 
 CREATE POLICY "Tenant Isolation Orders" ON service_orders
   FOR ALL
-  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
-  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- 10.7 POLÍTICAS DE INVENTORY (INVENTARIO)
 CREATE POLICY "Superadmin Full Access Inventory" ON inventory
@@ -317,8 +320,8 @@ CREATE POLICY "Superadmin Full Access Inventory" ON inventory
 
 CREATE POLICY "Tenant Isolation Inventory" ON inventory
   FOR ALL
-  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
-  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- 10.8 POLÍTICAS DE DEVICE_CATEGORY_TEMPLATES (PLANTILLAS)
 CREATE POLICY "Superadmin Full Access Templates" ON device_category_templates
@@ -328,8 +331,8 @@ CREATE POLICY "Superadmin Full Access Templates" ON device_category_templates
 
 CREATE POLICY "Tenant Isolation Templates" ON device_category_templates
   FOR ALL
-  USING (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL)
-  WITH CHECK (shop_id = public.get_current_shop_id() OR auth.uid() IS NOT NULL);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
 -- 10.9 POLÍTICAS DE ORDER_SPARES (REPUESTOS ASIGNADOS A ÓRDENES)
 CREATE POLICY "Superadmin Full Access Spares" ON order_spares
@@ -339,33 +342,15 @@ CREATE POLICY "Superadmin Full Access Spares" ON order_spares
 
 CREATE POLICY "Tenant Isolation Spares" ON order_spares
   FOR ALL
-  USING (true)
-  WITH CHECK (true);
+  USING (shop_id = public.get_current_shop_id())
+  WITH CHECK (shop_id = public.get_current_shop_id());
 
--- 10.10 POLÍTICAS PÚBLICAS DE LECTURA PARA SEGUIMIENTO B2C
+-- 10.10 LIMPIEZA DE POLÍTICAS PÚBLICAS INSEGURAS
+-- Nota: El seguimiento público B2C se realiza exclusivamente mediante la función segura RPC get_public_order_tracking(p_query)
 DROP POLICY IF EXISTS "Public Read Service Orders" ON service_orders;
-CREATE POLICY "Public Read Service Orders" ON service_orders
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
 DROP POLICY IF EXISTS "Public Read Customers" ON customers;
-CREATE POLICY "Public Read Customers" ON customers
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
 DROP POLICY IF EXISTS "Public Read Devices" ON devices;
-CREATE POLICY "Public Read Devices" ON devices
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
 DROP POLICY IF EXISTS "Public Read Shops" ON shops;
-CREATE POLICY "Public Read Shops" ON shops
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
 
 -- =======================================================
 -- 11. TRIGGER AUTOMÁTICO AL REGISTRAR UN USUARIO EN AUTH
@@ -450,9 +435,13 @@ FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
 -- COMPATIBILIDAD DE COLUMNAS DE GARANTÍA
+-- COMPATIBILIDAD DE COLUMNAS DE GARANTÍA, ANTICIPOS Y EVIDENCIAS FOTOGRÁFICAS
 ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS warranty_period TEXT;
 ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS warranty_until TIMESTAMPTZ;
 ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS advance_payment NUMERIC(10,2) DEFAULT 0.00;
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS payment_method TEXT DEFAULT 'efectivo';
+ALTER TABLE public.service_orders ADD COLUMN IF NOT EXISTS device_photos JSONB DEFAULT '[]'::jsonb;
 
 -- =======================================================
 -- 13. FUNCIÓN RPC PARA SEGUIMIENTO PÚBLICO SEGURO (B2C)
@@ -472,6 +461,9 @@ RETURNS TABLE (
   technical_diagnosis TEXT,
   estimated_completion TEXT,
   final_price NUMERIC,
+  advance_payment NUMERIC,
+  payment_method TEXT,
+  device_photos JSONB,
   warranty_period TEXT,
   warranty_until TIMESTAMPTZ,
   delivered_at TIMESTAMPTZ,
@@ -502,6 +494,9 @@ BEGIN
     so.technical_diagnosis,
     so.estimated_completion,
     so.final_price,
+    COALESCE(so.advance_payment, 0.00) AS advance_payment,
+    COALESCE(so.payment_method, 'efectivo') AS payment_method,
+    COALESCE(so.device_photos, '[]'::jsonb) AS device_photos,
     so.warranty_period,
     so.warranty_until,
     so.delivered_at,

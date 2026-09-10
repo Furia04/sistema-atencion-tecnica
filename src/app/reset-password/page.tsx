@@ -18,10 +18,10 @@ export default function ResetPasswordPage() {
     setErrorMessage('');
 
     try {
-      const siteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sistema-atencion-tecnica.vercel.app';
+      const siteUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/login?reset=true`,
+        redirectTo: `${siteUrl}/update-password`,
       });
 
       if (error && process.env.NEXT_PUBLIC_SUPABASE_URL) {

@@ -269,10 +269,22 @@ export const DeliveryTicket: React.FC<DeliveryTicketProps> = ({ order, shop, onC
               )}
             </div>
 
-            {/* PAGADO */}
-            <div className="flex justify-between font-bold text-sm py-1.5 border-b border-dashed border-black bg-emerald-50 px-2 rounded text-emerald-900 border border-emerald-300">
-              <span>MONTO PAGADO:</span>
-              <span>${(order.final_price || 0).toLocaleString('es-AR')}</span>
+            {/* PAGADO & SALDADO */}
+            <div className="space-y-1 py-1.5 border-b border-dashed border-black bg-emerald-50 px-2 rounded text-emerald-900 border border-emerald-300 text-[11px]">
+              <div className="flex justify-between font-bold">
+                <span>TOTAL REPARACIÓN:</span>
+                <span>${(order.final_price || 0).toLocaleString('es-AR')}</span>
+              </div>
+              {(order.advance_payment || 0) > 0 && (
+                <div className="flex justify-between text-[10px] text-emerald-800">
+                  <span>ANTICIPO PREVIO:</span>
+                  <span>-${(order.advance_payment || 0).toLocaleString('es-AR')} ({(order.payment_method || 'efectivo').toUpperCase()})</span>
+                </div>
+              )}
+              <div className="flex justify-between font-extrabold text-xs border-t border-emerald-300 pt-1 text-emerald-950">
+                <span>ESTADO:</span>
+                <span>100% SALDADO Y PAGADO</span>
+              </div>
             </div>
 
             <div className="text-[9px] leading-tight text-slate-600 text-center pt-1">

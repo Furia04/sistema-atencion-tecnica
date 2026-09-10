@@ -2,13 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Printer, FileText, Search, User, Smartphone, AlertCircle, Save, CheckCircle2, ArrowRight, Lock } from 'lucide-react';
+import {
+  Printer,
+  FileText,
+  Search,
+  User,
+  Smartphone,
+  AlertCircle,
+  Save,
+  CheckCircle2,
+  ArrowRight,
+  Lock,
+  DollarSign,
+  CreditCard,
+  Camera,
+  Wallet,
+} from 'lucide-react';
 import { createServiceOrderWithDevice, getCurrentUserProfile } from '@/lib/supabase/services';
 import { supabase } from '@/lib/supabase/client';
 import { CustomFieldDefinition, DeviceCategoryTemplate, ServiceOrder } from '@/types';
 import { CustomFieldsRenderer } from '@/components/orders/custom-fields-renderer';
 import { PatternLockInput } from '@/components/orders/pattern-lock-input';
 import { DeviceAutocomplete } from '@/components/orders/device-autocomplete';
+import { PhotoUploader } from '@/components/orders/photo-uploader';
 
 const DEFAULT_TEMPLATES: DeviceCategoryTemplate[] = [
   {
@@ -57,6 +73,14 @@ export default function NewOrderIntakePage() {
   const [powersOn, setPowersOn] = useState(true);
   const [faultDescription, setFaultDescription] = useState('');
 
+  // Finanzas y Seña / Anticipo
+  const [estimatedCost, setEstimatedCost] = useState<number | string>('');
+  const [advancePayment, setAdvancePayment] = useState<number | string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
+
+  // Evidencias Fotográficas de Recepción
+  const [devicePhotos, setDevicePhotos] = useState<string[]>([]);
+
   // Patrón Táctil de Desbloqueo (1 a 9)
   const [unlockPattern, setUnlockPattern] = useState<number[]>([]);
   const [showPatternDrawer, setShowPatternDrawer] = useState(false);
@@ -72,6 +96,10 @@ export default function NewOrderIntakePage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [ticketCode] = useState(`WO-${Math.floor(1000 + Math.random() * 9000)}`);
   const [todayDate] = useState(new Date().toLocaleDateString('es-AR'));
+
+  const numEstimatedCost = Number(estimatedCost) || 0;
+  const numAdvancePayment = Number(advancePayment) || 0;
+  const remainingBalance = Math.max(0, numEstimatedCost - numAdvancePayment);
 
   useEffect(() => {
     async function loadTemplates() {
@@ -140,6 +168,11 @@ export default function NewOrderIntakePage() {
       },
       order: {
         reported_fault: faultDescription.trim(),
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         tracking_code: `#${ticketCode}`,
       },
     };
@@ -158,7 +191,11 @@ export default function NewOrderIntakePage() {
         device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
         status: 'recibido',
         reported_fault: faultDescription.trim(),
-        final_price: 0,
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         created_at: savedOrder?.created_at || new Date().toISOString(),
         custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
@@ -188,7 +225,11 @@ export default function NewOrderIntakePage() {
         device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
         status: 'recibido',
         reported_fault: faultDescription.trim(),
-        final_price: 0,
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         created_at: new Date().toISOString(),
         custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
@@ -231,6 +272,11 @@ export default function NewOrderIntakePage() {
       },
       order: {
         reported_fault: faultDescription.trim(),
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         tracking_code: `#${ticketCode}`,
       },
     };
@@ -249,7 +295,11 @@ export default function NewOrderIntakePage() {
         device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
         status: 'recibido',
         reported_fault: faultDescription.trim(),
-        final_price: 0,
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         created_at: savedOrder?.created_at || new Date().toISOString(),
         custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
@@ -274,7 +324,11 @@ export default function NewOrderIntakePage() {
         device_info: `${deviceType} · ${deviceBrand.trim()} ${deviceModel.trim()}`,
         status: 'recibido',
         reported_fault: faultDescription.trim(),
-        final_price: 0,
+        estimated_cost: numEstimatedCost,
+        final_price: numEstimatedCost,
+        advance_payment: numAdvancePayment,
+        payment_method: paymentMethod,
+        device_photos: devicePhotos,
         created_at: new Date().toISOString(),
         custom_attributes: { unlock_pattern: unlockPattern, ...customAttrValues },
       };
@@ -523,9 +577,109 @@ export default function NewOrderIntakePage() {
               required
               value={faultDescription}
               onChange={(e) => setFaultDescription(e.target.value)}
-              rows={4}
+              rows={3}
               className="w-full flex-1 bg-surface-container-lowest border border-outline-variant rounded-xl p-3 text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary/50 resize-none"
               placeholder="Describa la falla reportada por el cliente en detalle..."
+            />
+          </div>
+
+          {/* Paso 4: Finanzas & Seña / Anticipo */}
+          <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 flex flex-col shadow-sm space-y-4">
+            <div className="flex items-center gap-2 border-b border-outline-variant/60 pb-3">
+              <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-caps text-xs font-bold">
+                4
+              </div>
+              <h3 className="font-title-sm text-sm text-on-surface font-bold flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-emerald-400" /> Presupuesto & Seña / Anticipo
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant uppercase mb-1">
+                  Presupuesto Estimado ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs font-mono">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={estimatedCost}
+                    onChange={(e) => setEstimatedCost(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-on-surface focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-emerald-400 uppercase mb-1">
+                  Seña / Anticipo ($)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-400 text-xs font-mono">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={advancePayment}
+                    onChange={(e) => setAdvancePayment(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-surface-container-lowest border border-emerald-500/40 rounded-xl py-2 pl-7 pr-3 text-xs font-mono font-bold text-emerald-400 focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-on-surface-variant uppercase mb-1">
+                  Medio de Pago de Seña
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-xl py-2 px-3 text-xs font-bold text-on-surface focus:border-primary"
+                >
+                  <option value="efectivo">💵 Efectivo</option>
+                  <option value="transferencia">🏦 Transferencia Bancaria</option>
+                  <option value="mercadopago">📱 Mercado Pago</option>
+                  <option value="debito">💳 Tarjeta de Débito</option>
+                  <option value="credito">💳 Tarjeta de Crédito</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Resumen Financiero Dinámico */}
+            <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div>
+                <span className="text-on-surface-variant block text-[10px] uppercase font-semibold">Total Estimado</span>
+                <span className="font-mono font-bold text-on-surface text-sm">${numEstimatedCost.toFixed(2)}</span>
+              </div>
+              <div>
+                <span className="text-emerald-400 block text-[10px] uppercase font-semibold">Seña Recibida</span>
+                <span className="font-mono font-bold text-emerald-400 text-sm">${numAdvancePayment.toFixed(2)}</span>
+              </div>
+              <div className="border-l border-outline-variant pl-4">
+                <span className="text-amber-400 block text-[10px] uppercase font-semibold">Saldo a Cobrar al Retirar</span>
+                <span className="font-mono font-bold text-amber-400 text-base">${remainingBalance.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Paso 5: Evidencias Fotográficas de Recepción */}
+          <div className="bg-surface-container rounded-2xl border border-outline-variant p-6 flex flex-col shadow-sm space-y-3">
+            <div className="flex items-center gap-2 border-b border-outline-variant/60 pb-3">
+              <div className="w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center font-label-caps text-xs font-bold">
+                5
+              </div>
+              <h3 className="font-title-sm text-sm text-on-surface font-bold flex items-center gap-2">
+                <Camera className="w-4 h-4 text-primary" /> Evidencias Fotográficas de Recepción
+              </h3>
+            </div>
+            <PhotoUploader
+              photos={devicePhotos}
+              onChange={setDevicePhotos}
+              maxPhotos={8}
             />
           </div>
         </div>
@@ -568,7 +722,7 @@ export default function NewOrderIntakePage() {
             {/* Contenedor de Vista Previa en Pantalla */}
             <div className="flex-1 bg-surface-container-highest p-6 flex items-start justify-center overflow-y-auto max-h-[70vh]">
               {printFormat === '80mm' ? (
-                /* VISTA PREVIA COMANDA 80MM (SIN QR CODE) */
+                /* VISTA PREVIA COMANDA 80MM */
                 <div className="bg-white text-black w-[300px] p-6 shadow-2xl font-mono text-xs leading-tight rounded-sm">
                   <div className="text-center mb-4 border-b-2 border-black border-dashed pb-4">
                     <div className="font-bold text-base uppercase tracking-wider">
@@ -605,10 +759,34 @@ export default function NewOrderIntakePage() {
                     )}
                   </div>
 
-                  <div className="mb-6 border-b-2 border-black border-dashed pb-4 text-[11px]">
+                  <div className="mb-4 border-b-2 border-black border-dashed pb-3 text-[11px]">
                     <div className="font-bold uppercase text-[10px] text-slate-700">FALLA REPORTADA</div>
                     <p className="whitespace-pre-wrap italic mt-0.5">{faultDescription || 'Sin especificar...'}</p>
                   </div>
+
+                  {/* Sección Financiera en Ticket 80mm */}
+                  <div className="mb-4 bg-slate-100 p-2.5 rounded border border-slate-300 space-y-1 text-[11px]">
+                    <div className="flex justify-between font-bold">
+                      <span>PRESUPUESTO:</span>
+                      <span>${numEstimatedCost.toFixed(2)}</span>
+                    </div>
+                    {numAdvancePayment > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-bold">
+                        <span>SEÑA ({paymentMethod.toUpperCase()}):</span>
+                        <span>-${numAdvancePayment.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-extrabold border-t border-slate-300 pt-1 text-slate-900">
+                      <span>SALDO AL RETIRAR:</span>
+                      <span>${remainingBalance.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {devicePhotos.length > 0 && (
+                    <div className="mb-4 text-[10px] text-slate-600 text-center font-bold">
+                      📸 {devicePhotos.length} fotos de evidencia registradas
+                    </div>
+                  )}
 
                   <div className="text-center text-[9px] text-slate-600 leading-tight">
                     <p>No nos responsabilizamos por pérdida de datos.</p>
@@ -616,7 +794,7 @@ export default function NewOrderIntakePage() {
                   </div>
                 </div>
               ) : (
-                /* VISTA PREVIA HOJA A4 (SIN QR CODE) */
+                /* VISTA PREVIA HOJA A4 */
                 <div className="bg-white text-black w-full max-w-lg p-6 shadow-2xl font-sans text-xs space-y-4 rounded-sm border border-slate-300">
                   <div className="flex justify-between items-start border-b-2 border-black pb-3">
                     <div>
@@ -658,6 +836,28 @@ export default function NewOrderIntakePage() {
                     <p className="text-xs italic">{faultDescription || 'Sin especificar...'}</p>
                   </div>
 
+                  {/* Resumen Financiero en Hoja A4 */}
+                  <div className="grid grid-cols-3 gap-3 bg-slate-100 p-3 rounded border border-slate-300 text-center font-mono">
+                    <div>
+                      <span className="text-[9px] text-slate-600 uppercase font-bold block">PRESUPUESTO</span>
+                      <span className="font-bold text-xs">${numEstimatedCost.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-emerald-700 uppercase font-bold block">SEÑA ({paymentMethod.toUpperCase()})</span>
+                      <span className="font-bold text-xs text-emerald-700">${numAdvancePayment.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-900 uppercase font-extrabold block">SALDO PENDIENTE</span>
+                      <span className="font-extrabold text-xs text-slate-900">${remainingBalance.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {devicePhotos.length > 0 && (
+                    <div className="text-[10px] text-slate-600 text-center font-bold">
+                      📸 {devicePhotos.length} fotos de evidencia física registradas al ingreso
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-2 gap-6 pt-6 text-center text-[10px] font-bold">
                     <div className="border-t border-black pt-1">
                       Firma del Cliente
@@ -673,7 +873,7 @@ export default function NewOrderIntakePage() {
         </div>
       </div>
 
-      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR 80MM - NO INCLUYE EL PATRÓN DE DESBLOQUEO POR PRIVACIDAD) */}
+      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR 80MM) */}
       {printFormat === '80mm' && (
         <div className="hidden print:block print:w-[80mm] print:p-2 print:m-0 print:bg-white print:text-black font-mono text-[10px] leading-tight">
           <div className="text-center pb-2 mb-2 border-b border-dashed border-black">
@@ -701,6 +901,14 @@ export default function NewOrderIntakePage() {
             <div><strong>FALLA:</strong> {faultDescription}</div>
           </div>
 
+          <div className="pb-2 mb-2 border-b border-dashed border-black space-y-0.5">
+            <div><strong>TOTAL:</strong> ${numEstimatedCost.toFixed(2)}</div>
+            {numAdvancePayment > 0 && (
+              <div><strong>SEÑA ({paymentMethod.toUpperCase()}):</strong> ${numAdvancePayment.toFixed(2)}</div>
+            )}
+            <div><strong>SALDO PENDIENTE:</strong> ${remainingBalance.toFixed(2)}</div>
+          </div>
+
           <div className="text-[8px] text-center pt-1">
             <p>No nos responsabilizamos por pérdida de datos.</p>
             <p className="font-bold mt-2">www.jatech.ops / #{ticketCode}</p>
@@ -708,7 +916,7 @@ export default function NewOrderIntakePage() {
         </div>
       )}
 
-      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR HOJA A4 - NO INCLUYE EL PATRÓN DE DESBLOQUEO POR PRIVACIDAD) */}
+      {/* COMPONENTE EXCLUSIVO IMPRESIÓN (PRINT MEDIA CSS FOR HOJA A4) */}
       {printFormat === 'a4' && (
         <div className="hidden print:block print:w-full print:p-8 print:m-0 print:bg-white print:text-black font-sans text-xs space-y-6">
           <div className="flex justify-between items-start border-b-2 border-black pb-4">
@@ -742,6 +950,21 @@ export default function NewOrderIntakePage() {
           <div className="bg-gray-50 p-4 border border-black rounded space-y-2">
             <span className="font-bold uppercase text-[10px] text-gray-600">DESCRIPCIÓN DE LA FALLA REPORTADA</span>
             <p className="font-bold text-sm">{faultDescription}</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 bg-gray-100 p-3 border border-black rounded text-center font-mono">
+            <div>
+              <span className="text-[9px] uppercase font-bold block">PRESUPUESTO</span>
+              <span className="font-bold text-sm">${numEstimatedCost.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-[9px] uppercase font-bold block">SEÑA RECIBIDA</span>
+              <span className="font-bold text-sm">${numAdvancePayment.toFixed(2)} ({paymentMethod.toUpperCase()})</span>
+            </div>
+            <div>
+              <span className="text-[9px] uppercase font-bold block">SALDO A COBRAR</span>
+              <span className="font-bold text-sm">${remainingBalance.toFixed(2)}</span>
+            </div>
           </div>
 
           <div className="border-t border-black pt-3 text-[10px] text-gray-700 leading-relaxed">

@@ -1,18 +1,38 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import { Mail, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const errorCode = searchParams.get('error_code');
+    const errorDescription = searchParams.get('error_description');
+
+    if (searchParams.get('reset') === 'true') {
+      router.push('/update-password');
+      return;
+    }
+
+    if (errorCode === 'otp_expired' || (typeof window !== 'undefined' && window.location.hash.includes('otp_expired'))) {
+      setErrorMessage('El enlace de recuperación ha expirado o ya fue utilizado. Por favor solicita uno nuevo.');
+    } else if (errorDescription) {
+      setErrorMessage(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+    } else if (error) {
+      setErrorMessage('Ocurrió un error al procesar la autenticación.');
+    }
+  }, [searchParams, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +134,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+            className="w-full bg-primary text-on-primary hover:bg-primary-container font-title-sm text-sm font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mt-2 cursor-pointer"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {loading ? 'Ingresando...' : 'Iniciar Sesión'} <ArrowRight className="w-4 h-4" />
@@ -133,3 +153,16 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
