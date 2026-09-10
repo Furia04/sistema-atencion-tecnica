@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Logo } from '@/components/ui/logo';
 import {
   CreditCard,
@@ -15,23 +15,104 @@ import {
   Copy,
   Check,
   MessageSquare,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import { getCurrentUserProfile, fetchCurrentShop } from '@/lib/supabase/services';
+import { Shop, UserProfile } from '@/types';
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [copiedAlias, setCopiedAlias] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [shop, setShop] = useState<Shop | null>(null);
+  const [loadingShop, setLoadingShop] = useState(true);
 
-  const handleSimulateSuccessfulPayment = () => {
-    setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
+  const statusParam = searchParams.get('status') || searchParams.get('collection_status');
+  const shopIdParam = searchParams.get('shop_id');
+
+  useEffect(() => {
+    async function loadData() {
+      setLoadingShop(true);
+      try {
+        const [profile, currentShop] = await Promise.all([
+          getCurrentUserProfile(),
+          fetchCurrentShop(),
+        ]);
+        setUser(profile);
+        setShop(currentShop);
+      } catch (err) {
+        console.warn('No se pudieron obtener datos del taller:', err);
+      } finally {
+        setLoadingShop(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  // Detectar si el usuario regresó de Mercado Pago con pago aprobado
+  useEffect(() => {
+    if (statusParam === 'success' || statusParam === 'approved') {
       setPaymentSuccess(true);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         router.push('/dashboard');
-      }, 1500);
-    }, 1200);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else if (statusParam === 'failure') {
+      setErrorMessage('El pago no pudo completarse en Mercado Pago. Por favor, intenta nuevamente.');
+    } else if (statusParam === 'pending') {
+      setErrorMessage('El pago se encuentra pendiente de acreditación. Se activará automáticamente una vez aprobado.');
+    }
+  }, [statusParam, router]);
+
+  const handlePayWithMercadoPago = async () => {
+    setProcessing(true);
+    setErrorMessage('');
+
+    try {
+      const targetShopId = shop?.id || user?.shop_id || shopIdParam || user?.id;
+      const targetEmail = user?.email || shop?.owner_email || '';
+      const targetShopName = shop?.name || user?.full_name ? `Taller de ${user?.full_name}` : 'Taller Pro';
+
+      if (!targetShopId) {
+        setErrorMessage('Debes iniciar sesión o registrar tu taller antes de pagar.');
+        setProcessing(false);
+        return;
+      }
+
+      const res = await fetch('/api/checkout/preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: targetShopId,
+          email: targetEmail,
+          shopName: targetShopName,
+          planPrice: shop?.plan_price || 15000,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Error al conectar con Mercado Pago.');
+      }
+
+      const redirectUrl = data.init_point || data.sandbox_init_point;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      } else {
+        throw new Error('No se recibió la URL de pago de Mercado Pago.');
+      }
+    } catch (err: any) {
+      console.error('Error al iniciar checkout con Mercado Pago:', err);
+      setErrorMessage(err?.message || 'Ocurrió un problema al conectar con Mercado Pago. Intenta nuevamente.');
+      setProcessing(false);
+    }
   };
 
   return (
@@ -64,19 +145,26 @@ export default function CheckoutPage() {
               JaTech — Plan Taller Pro
             </h2>
             <p className="font-body-sm text-xs text-on-surface-variant mt-0.5">
-              Acceso completo para tu taller • Facturación mensual
+              {shop?.name ? `Taller: ${shop.name} • ` : ''}Acceso completo • Facturación mensual
             </p>
           </div>
 
           <div className="text-right self-end sm:self-auto">
             <div className="font-display-lg text-3xl font-bold text-emerald-400 font-mono-data">
-              $15.000
+              ${Number(shop?.plan_price || 15000).toLocaleString('es-AR')}
             </div>
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase font-bold">
               ARS / mes
             </span>
           </div>
         </div>
+
+        {errorMessage && (
+          <div className="bg-error/10 border border-error/30 text-error p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {paymentSuccess ? (
           <div className="bg-emerald-500/10 border-2 border-emerald-500/40 rounded-2xl p-8 text-center space-y-3 animate-in zoom-in-95 duration-200">
@@ -85,7 +173,7 @@ export default function CheckoutPage() {
               ¡Pago Aprobado y Suscripción Activada!
             </h3>
             <p className="font-body-sm text-xs text-on-surface-variant">
-              Redirigiendo a tu panel de administración del taller...
+              Tu taller se encuentra activo con acceso total. Redirigiendo a tu panel de administración...
             </p>
           </div>
         ) : (
@@ -106,6 +194,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => {
                     navigator.clipboard.writeText('JATECH.OPS.MP');
                     setCopiedAlias(true);
@@ -125,23 +214,32 @@ export default function CheckoutPage() {
                 </button>
               </div>
 
-              {/* Opción B: Tarjeta o Mercado Pago Instantáneo */}
+              {/* Opción B: Pasarela Oficial de Mercado Pago */}
               <div className="bg-surface-container-lowest border border-outline-variant/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-emerald-400 font-title-sm text-sm font-bold">
-                    <CreditCard className="w-4 h-4" /> Mercado Pago / Tarjeta
+                    <CreditCard className="w-4 h-4" /> Mercado Pago Oficial
                   </div>
                   <p className="font-body-sm text-xs text-on-surface-variant leading-relaxed">
-                    Aprobación inmediata en 1 clic mediante pasarela de pago segura de Mercado Pago.
+                    Aprobación automática inmediata con Tarjeta de Débito, Crédito o Dinero en Cuenta de Mercado Pago.
                   </p>
                 </div>
 
                 <button
-                  onClick={handleSimulateSuccessfulPayment}
+                  type="button"
+                  onClick={handlePayWithMercadoPago}
                   disabled={processing}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-title-sm text-xs font-bold py-2.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <Zap className="w-4 h-4" /> {processing ? 'Procesando Pago...' : 'Pagar $15.000 con Mercado Pago'}
+                  {processing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Conectando Mercado Pago...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" /> Pagar con Mercado Pago
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -149,17 +247,33 @@ export default function CheckoutPage() {
             {/* Notificación de Asistencia por WhatsApp */}
             <div className="text-center pt-2 border-t border-outline-variant/40">
               <a
-                href="https://wa.me/?text=Hola,%20acabo%20de%20realizar%20la%20transferencia%20de%20%2415.000%20para%20activar%20mi%20taller%20en%20JaTech."
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Hola, acabo de abonar la membresía de $15.000 para el taller ${shop?.name || user?.email || ''} en JaTech.`
+                )}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-xs font-title-sm text-on-surface-variant hover:text-emerald-400 font-semibold transition-colors"
               >
-                <MessageSquare className="w-4 h-4 text-emerald-400" /> ¿Ya transferiste? Enviar comprobante por WhatsApp al Administrador
+                <MessageSquare className="w-4 h-4 text-emerald-400" /> ¿Necesitas asistencia con tu pago? Contactar por WhatsApp
               </a>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
   );
 }
