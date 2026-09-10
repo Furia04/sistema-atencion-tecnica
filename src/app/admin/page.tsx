@@ -148,19 +148,40 @@ export default function SuperAdminDashboardPage() {
     const cleanName = newShopName.trim();
 
     try {
-      // Inserción real en la tabla 'shops' de Supabase
-      const { error } = await supabase
-        .from('shops')
-        .insert([{
-          name: cleanName,
-          owner_email: cleanEmail,
-          subscription_status: 'active',
-          plan_price: 20000,
-          active: true,
-        }]);
+      let saved = false;
+      try {
+        const res = await fetch('/api/admin/shops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: cleanName,
+            owner_email: cleanEmail,
+            subscription_status: 'active',
+            plan_price: 20000,
+            active: true,
+          }),
+        });
+        if (res.ok) {
+          saved = true;
+        }
+      } catch (apiErr) {
+        console.warn('Fallback a inserción directa Supabase:', apiErr);
+      }
 
-      if (error) {
-        console.error('Error al insertar taller en Supabase:', error);
+      if (!saved) {
+        const { error } = await supabase
+          .from('shops')
+          .insert([{
+            name: cleanName,
+            owner_email: cleanEmail,
+            subscription_status: 'active',
+            plan_price: 20000,
+            active: true,
+          }]);
+
+        if (error) {
+          console.error('Error al insertar taller en Supabase:', error);
+        }
       }
 
       await loadShops();

@@ -67,6 +67,20 @@ export async function fetchCurrentShop(): Promise<Shop | null> {
 
 export async function fetchAllShopsForAdmin(): Promise<Shop[]> {
   try {
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/admin/shops');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.shops && Array.isArray(data.shops)) {
+            return data.shops;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('Fallback a consulta directa Supabase desde cliente:', apiErr);
+      }
+    }
+
     const { data: dbShops, error: shopsError } = await supabase
       .from('shops')
       .select('*')
@@ -149,6 +163,21 @@ export async function updateShopSubscriptionStatus(
   active: boolean
 ) {
   try {
+    if (typeof window !== 'undefined') {
+      try {
+        const res = await fetch('/api/admin/shops/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shopId, status, active }),
+        });
+        if (res.ok) {
+          return true;
+        }
+      } catch (apiErr) {
+        console.warn('Fallback a actualización directa Supabase desde cliente:', apiErr);
+      }
+    }
+
     const { error } = await supabase
       .from('shops')
       .update({
